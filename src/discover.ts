@@ -1,16 +1,16 @@
-import { exec as execCb } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
-import { promisify } from 'node:util'
-import type { RawConfig, FoundConfig } from './types.ts'
+import { exec as execCb } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { promisify } from 'node:util';
+import type { FoundConfig, RawConfig } from './types.ts';
 
-const exec = promisify(execCb)
+const exec = promisify(execCb);
 
-export const CONFIG_DIR = '.pi'
-export const CONFIG_FILE = 'edit-hooks.json'
-export const GLOBAL_CONFIG_PATH = join(homedir(), '.pi', 'agent', CONFIG_FILE)
-export const GLOBAL_CONFIG_DIR = join(homedir(), '.pi', 'agent')
+export const CONFIG_DIR = '.pi';
+export const CONFIG_FILE = 'edit-hooks.json';
+export const GLOBAL_CONFIG_PATH = join(homedir(), '.pi', 'agent', CONFIG_FILE);
+export const GLOBAL_CONFIG_DIR = join(homedir(), '.pi', 'agent');
 
 /**
  * Get the git repository root for a directory.
@@ -18,10 +18,10 @@ export const GLOBAL_CONFIG_DIR = join(homedir(), '.pi', 'agent')
  */
 export async function getGitRoot(cwd: string): Promise<string | null> {
   try {
-    const { stdout } = await exec('git rev-parse --show-toplevel', { cwd })
-    return stdout.trim()
+    const { stdout } = await exec('git rev-parse --show-toplevel', { cwd });
+    return stdout.trim();
   } catch {
-    return null
+    return null;
   }
 }
 
@@ -32,20 +32,20 @@ export async function getGitRoot(cwd: string): Promise<string | null> {
  */
 export function parseConfigFile(configPath: string): RawConfig | null {
   try {
-    const content = readFileSync(configPath, 'utf8')
-    const parsed = JSON.parse(content)
+    const content = readFileSync(configPath, 'utf8');
+    const parsed = JSON.parse(content);
 
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-      console.warn(`[pi-edit-hooks] Invalid config at ${configPath}: not an object`)
-      return null
+      console.warn(`[pi-edit-hooks] Invalid config at ${configPath}: not an object`);
+      return null;
     }
 
-    return parsed as RawConfig
+    return parsed as RawConfig;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.warn(`[pi-edit-hooks] Failed to parse ${configPath}: ${err}`)
+      console.warn(`[pi-edit-hooks] Failed to parse ${configPath}: ${err}`);
     }
-    return null
+    return null;
   }
 }
 
@@ -55,29 +55,29 @@ export function parseConfigFile(configPath: string): RawConfig | null {
  * Returns null if no config found.
  */
 export function findProjectConfig(filePath: string, boundary: string): FoundConfig | null {
-  let dir = dirname(resolve(filePath))
-  const boundaryAbs = resolve(boundary)
+  let dir = dirname(resolve(filePath));
+  const boundaryAbs = resolve(boundary);
 
   while (true) {
-    const candidate = join(dir, CONFIG_DIR, CONFIG_FILE)
+    const candidate = join(dir, CONFIG_DIR, CONFIG_FILE);
     if (existsSync(candidate)) {
-      const config = parseConfigFile(candidate)
+      const config = parseConfigFile(candidate);
       if (config !== null) {
-        return { config, configDir: dir }
+        return { config, configDir: dir };
       }
       // Invalid config — continue searching up
     }
 
     if (dir === boundaryAbs) {
-      return null
+      return null;
     }
 
-    const parent = dirname(dir)
+    const parent = dirname(dir);
     if (parent === dir) {
-      return null
+      return null;
     }
 
-    dir = parent
+    dir = parent;
   }
 }
 
@@ -87,15 +87,15 @@ export function findProjectConfig(filePath: string, boundary: string): FoundConf
  */
 export function loadGlobalConfig(): FoundConfig | null {
   if (!existsSync(GLOBAL_CONFIG_PATH)) {
-    return null
+    return null;
   }
 
-  const config = parseConfigFile(GLOBAL_CONFIG_PATH)
+  const config = parseConfigFile(GLOBAL_CONFIG_PATH);
   if (config === null) {
-    return null
+    return null;
   }
 
-  return { config, configDir: GLOBAL_CONFIG_DIR }
+  return { config, configDir: GLOBAL_CONFIG_DIR };
 }
 
 /**
@@ -107,7 +107,7 @@ export function discoverConfigs(
   filePath: string,
   boundary: string,
 ): { project: FoundConfig | null; global: FoundConfig | null } {
-  const project = findProjectConfig(filePath, boundary)
-  const global = loadGlobalConfig()
-  return { project, global }
+  const project = findProjectConfig(filePath, boundary);
+  const global = loadGlobalConfig();
+  return { project, global };
 }

@@ -1,6 +1,6 @@
-import { basename } from 'node:path'
+import { basename } from 'node:path';
 
-import type { CommandValue, GlobCommands } from './types.ts'
+import type { CommandValue, GlobCommands } from './types.ts';
 
 /**
  * Expand all brace groups in a glob pattern recursively.
@@ -12,10 +12,10 @@ import type { CommandValue, GlobCommands } from './types.ts'
  * with multiple groups.
  */
 export function expandBraces(pattern: string): string[] {
-  const m = pattern.match(/^(.*?)\{([^}]+)\}(.*)$/)
-  if (!m) return [pattern]
-  const [, pre, inner, post] = m
-  return inner.split(',').flatMap(part => expandBraces(`${pre}${part}${post}`))
+  const m = pattern.match(/^(.*?)\{([^}]+)\}(.*)$/);
+  if (!m) return [pattern];
+  const [, pre, inner, post] = m;
+  return inner.split(',').flatMap((part) => expandBraces(`${pre}${part}${post}`));
 }
 
 /**
@@ -25,16 +25,14 @@ export function expandBraces(pattern: string): string[] {
  * Supports * wildcard and brace expansion.
  */
 export function matchesGlob(file: string, pattern: string): boolean {
-  const name = basename(file)
+  const name = basename(file);
   for (const expanded of expandBraces(pattern)) {
     // Escape all regex metacharacters EXCEPT *, then convert * to .*
-    const escaped = expanded
-      .replace(/[.+^${}()|[\]\\]/g, '\\$&')
-      .replace(/\*/g, '.*')
-    const regex = new RegExp(`^${escaped}$`)
-    if (regex.test(name)) return true
+    const escaped = expanded.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+    const regex = new RegExp(`^${escaped}$`);
+    if (regex.test(name)) return true;
   }
-  return false
+  return false;
 }
 
 /**
@@ -44,20 +42,20 @@ export function matchesGlob(file: string, pattern: string): boolean {
  */
 export function findCommand(globs: GlobCommands, file: string): CommandValue | null {
   for (const [pattern, cmd] of Object.entries(globs)) {
-    if (matchesGlob(file, pattern)) return cmd
+    if (matchesGlob(file, pattern)) return cmd;
   }
-  return null
+  return null;
 }
 
 /**
  * Normalize a command value to an array of strings or null (disabled).
  */
 export function normalizeCommand(value: CommandValue): string[] | null {
-  if (value === false) return null
-  if (value === '') return null
+  if (value === false) return null;
+  if (value === '') return null;
   if (Array.isArray(value)) {
-    if (value.length === 0) return null
-    return value
+    if (value.length === 0) return null;
+    return value;
   }
-  return [value]
+  return [value];
 }

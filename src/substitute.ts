@@ -1,12 +1,12 @@
-import { join, resolve } from 'node:path'
-import type { HookMode } from './types.ts'
+import { join, resolve } from 'node:path';
+import type { HookMode } from './types.ts';
 
 export interface SubstituteOptions {
-  file: string
-  files?: string[]
-  projectRoot: string
-  configDir: string
-  mode: HookMode
+  file: string;
+  files?: string[];
+  projectRoot: string;
+  configDir: string;
+  mode: HookMode;
 }
 
 /**
@@ -19,7 +19,7 @@ export interface SubstituteOptions {
  * This is safe against filenames containing $, `, !, spaces, \, etc.
  */
 function shellQuote(s: string): string {
-  return `'${s.replace(/'/g, "'\\''")}'`
+  return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
 /**
@@ -41,38 +41,36 @@ function shellQuote(s: string): string {
  * are shell-quoted so spaces in the path are handled correctly.
  */
 export function substituteVars(cmd: string, opts: SubstituteOptions): string {
-  const absFile = resolve(opts.file)
-  let result = cmd
+  const absFile = resolve(opts.file);
+  let result = cmd;
 
   if (result.startsWith('./') || result.startsWith('../')) {
     // Extract the script path (up to first space) and quote it; preserve arguments
-    const spaceIdx = result.indexOf(' ')
-    const rel = spaceIdx === -1 ? result : result.slice(0, spaceIdx)
-    const rest = spaceIdx === -1 ? '' : result.slice(spaceIdx)
-    result = shellQuote(join(opts.configDir, rel)) + rest
+    const spaceIdx = result.indexOf(' ');
+    const rel = spaceIdx === -1 ? result : result.slice(0, spaceIdx);
+    const rest = spaceIdx === -1 ? '' : result.slice(spaceIdx);
+    result = shellQuote(join(opts.configDir, rel)) + rest;
   }
 
-  const hasFilePlaceholder = result.includes('{file}') || result.includes('{files}')
+  const hasFilePlaceholder = result.includes('{file}') || result.includes('{files}');
   if (!hasFilePlaceholder) {
-    result = opts.mode === 'onEdit'
-      ? `${result} {file}`
-      : `${result} {files}`
+    result = opts.mode === 'onEdit' ? `${result} {file}` : `${result} {files}`;
   }
 
-  result = result.replace(/\{file\}/g, shellQuote(absFile))
+  result = result.replace(/\{file\}/g, shellQuote(absFile));
 
   // Capture any path suffix after {projectRoot} so the whole token is quoted
   // together: {projectRoot}/mypy.ini → '/project/mypy.ini'
   result = result.replace(/\{projectRoot\}([^\s]*)/g, (_, suffix) =>
     shellQuote(opts.projectRoot + suffix),
-  )
+  );
 
   if (opts.mode === 'onStop' && opts.files && opts.files.length > 0) {
-    const filesArg = opts.files.map(f => shellQuote(resolve(f))).join(' ')
-    result = result.replace(/\{files\}/g, filesArg)
+    const filesArg = opts.files.map((f) => shellQuote(resolve(f))).join(' ');
+    result = result.replace(/\{files\}/g, filesArg);
   } else {
-    result = result.replace(/\{files\}/g, shellQuote(absFile))
+    result = result.replace(/\{files\}/g, shellQuote(absFile));
   }
 
-  return result
+  return result;
 }
