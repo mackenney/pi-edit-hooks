@@ -1,0 +1,16 @@
+{
+  "_comment": "Example pi-edit-hooks configuration",
+  "_comment2": "Copy to .pi/edit-hooks.json in your project or ~/.pi/agent/edit-hooks.json globally",
+
+  "onEdit": {
+    "*.py": "python3 -c 'import ast,sys;ast.parse(open(sys.argv[1]).read(),sys.argv[1])' {file}",
+    "*.{js,mjs,cjs}": "node --check {file}",
+    "*.{ts,tsx}": "node --check {file}",
+    "*.json": "python3 -m json.tool {file} >/dev/null"
+  },
+
+  "onStop": {
+    "*.py": "uv run ruff format --force-exclude {files} && uv run ruff check --force-exclude --fix {files} && uv run basedpyright {files}",
+    "*.{ts,tsx}": "npx tsc --noEmit"
+  }
+}

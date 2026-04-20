@@ -1,0 +1,23 @@
+{
+  "_comment": "Path-keyed config example — different settings per subdirectory",
+
+  ".": {
+    "onEdit": {
+      "*.py": "python3 -c 'import ast,sys;ast.parse(open(sys.argv[1]).read(),sys.argv[1])' {file}"
+    },
+    "onStop": {
+      "*.py": "uv run ruff check --force-exclude {files}"
+    }
+  },
+
+  "legacy/": false,
+
+  "packages/frontend/": {
+    "onEdit": {
+      "*.{ts,tsx}": "node --check {file}"
+    },
+    "onStop": {
+      "*.{ts,tsx}": "npx biome check {files}"
+    }
+  }
+}
