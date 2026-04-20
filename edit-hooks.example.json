@@ -10,7 +10,11 @@
   },
 
   "onStop": {
-    "*.py": "uv run ruff format --force-exclude {files} && uv run ruff check --force-exclude --fix {files} && uv run basedpyright {files}",
+    "*.py": [
+      "uv run ruff format --force-exclude {files}",
+      "uv run ruff check --force-exclude --fix {files}",
+      "uv run basedpyright {files}"
+    ],
     "*.{ts,tsx}": "npx tsc --noEmit"
   }
 }

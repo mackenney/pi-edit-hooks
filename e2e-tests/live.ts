@@ -29,7 +29,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
-const EXTENSION_PATH = '/home/ignacio/pr/pi-edit-hooks/index.ts'
+const EXTENSION_PATH = new URL('../src/index.ts', import.meta.url).pathname
 const MODEL_ID = 'claude-haiku-4-5'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

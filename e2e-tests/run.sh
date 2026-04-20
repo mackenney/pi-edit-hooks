@@ -17,7 +17,7 @@ echo "=== E2E Tests ==="
 echo ""
 echo "--- 1. Shell injection via \$() in filenames is prevented ---"
 cmd=$(node --input-type=module << 'EOF'
-import { substituteVars } from '../substitute.ts'
+import { substituteVars } from '../src/substitute.ts'
 const result = substituteVars('echo', {
   file: '/tmp/$(echo INJECTED).ts',
   projectRoot: '/proj',
@@ -91,7 +91,7 @@ fi
 echo ""
 echo "--- 4. expandBraces multi-group: {a,b}.{c,d} ---"
 result=$(node --input-type=module << 'EOF'
-import { expandBraces } from '../glob.ts'
+import { expandBraces } from '../src/glob.ts'
 const expanded = expandBraces('{a,b}.{c,d}')
 console.log(JSON.stringify(expanded.sort()))
 EOF
@@ -104,7 +104,7 @@ else
 fi
 
 result2=$(node --input-type=module << 'EOF'
-import { expandBraces } from '../glob.ts'
+import { expandBraces } from '../src/glob.ts'
 console.log(JSON.stringify(expandBraces('*.{ts,tsx}')))
 EOF
 )
@@ -118,7 +118,7 @@ fi
 echo ""
 echo "--- 5. matchesGlob: basename-only (path patterns not supported by design) ---"
 result=$(node --input-type=module << 'EOF'
-import { matchesGlob } from '../glob.ts'
+import { matchesGlob } from '../src/glob.ts'
 const ok1 = matchesGlob('/project/src/app.ts', '*.ts')
 const ok2 = matchesGlob('/project/src/app.ts', 'src/*.ts')
 const ok3 = matchesGlob('/project/other/app.ts', 'src/*.ts')
@@ -141,7 +141,7 @@ fi
 echo ""
 echo "--- 6. workspace field present in ResolvedConfig ---"
 result=$(node --input-type=module << 'EOF'
-import { resolveConfig } from '../resolve.ts'
+import { resolveConfig } from '../src/resolve.ts'
 import { writeFileSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -186,7 +186,7 @@ fi
 echo ""
 echo "--- 8. Path-keyed global config emits warning ---"
 result=$(node --input-type=module << 'EOF' 2>&1
-import { resolveConfig } from '../resolve.ts'
+import { resolveConfig } from '../src/resolve.ts'
 import { writeFileSync, mkdirSync, rmSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'

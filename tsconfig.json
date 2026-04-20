@@ -9,13 +9,7 @@
     "skipLibCheck": true
   },
   "include": [
-    "index.ts",
-    "types.ts",
-    "glob.ts",
-    "substitute.ts",
-    "discover.ts",
-    "resolve.ts",
-    "core.ts"
+    "src/**/*.ts"
   ],
   "exclude": [
     "node_modules",

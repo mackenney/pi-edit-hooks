@@ -15,24 +15,18 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/ignaciolarranaga/pi-edit-hooks"
+    "url": "https://github.com/mackenney/pi-edit-hooks"
   },
   "pi": {
     "extensions": [
-      "./index.ts"
+      "./src/index.ts"
     ]
   },
   "publishConfig": {
     "access": "public"
   },
   "files": [
-    "index.ts",
-    "types.ts",
-    "glob.ts",
-    "substitute.ts",
-    "discover.ts",
-    "resolve.ts",
-    "core.ts",
+    "src/",
     "cli.mjs",
     "README.md",
     "edit-hooks.example.json",
