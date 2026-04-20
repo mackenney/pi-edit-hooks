@@ -1,0 +1,4 @@
+{
+  "onEdit": { "*.py": "./scripts/check.sh" },
+  "onStop": { "*.py": "echo {projectRoot}" }
+}

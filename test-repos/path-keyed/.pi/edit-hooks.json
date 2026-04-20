@@ -1,0 +1,10 @@
+{
+  ".": {
+    "onEdit": { "*.py": "echo root-edit" },
+    "onStop": { "*.py": "echo root-stop" }
+  },
+  "packages/api/": {
+    "onEdit": { "*.py": "echo api-edit" }
+  },
+  "packages/legacy/": false
+}

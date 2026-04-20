@@ -1,0 +1,6 @@
+{
+  "onStop": {
+    "*.py": "echo py-files {files}",
+    "*.ts": "echo ts-files {files}"
+  }
+}

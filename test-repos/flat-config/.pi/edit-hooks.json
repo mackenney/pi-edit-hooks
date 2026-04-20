@@ -1,0 +1,4 @@
+{
+  "onEdit": { "*.py": "echo edit {file}" },
+  "onStop": { "*.py": "echo stop {files}" }
+}

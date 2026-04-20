@@ -1,0 +1,8 @@
+{
+  "onEdit": {
+    "*.py": "echo python",
+    "*.{ts,tsx}": "echo typescript",
+    "*.{js,mjs,cjs}": "echo javascript",
+    "*.json": "echo json"
+  }
+}
