@@ -41,8 +41,16 @@ function makeProject(config: object): { dir: string; cleanup(): void } {
   return { dir, cleanup: () => rmSync(dir, { recursive: true, force: true }) }
 }
 
+function makeAuthStorage(): typeof AuthStorage.prototype {
+  const envKey = process.env.ANTHROPIC_API_KEY
+  if (envKey) {
+    return AuthStorage.inMemory({ anthropic: { type: 'api_key', key: envKey } })
+  }
+  return AuthStorage.create()
+}
+
 async function makeSession(cwd: string) {
-  const authStorage = AuthStorage.create()
+  const authStorage = makeAuthStorage()
   const modelRegistry = ModelRegistry.create(authStorage)
   const model = getModel('anthropic', MODEL_ID)
   if (!model) throw new Error(`Model ${MODEL_ID} not found`)

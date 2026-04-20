@@ -44,7 +44,10 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run typecheck",
-    "pack:preview": "npm pack --dry-run"
+    "pack:preview": "npm pack --dry-run",
+    "test": "bash e2e-tests/run.sh",
+    "test:live": "node --env-file .env --experimental-strip-types e2e-tests/live.ts",
+    "test:all": "npm run test && npm run test:live"
   },
   "peerDependencies": {
     "@mariozechner/pi-coding-agent": "*"

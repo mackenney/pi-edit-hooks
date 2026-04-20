@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
-# e2e-tests/run.sh — validates confirmed code review findings end-to-end
+# e2e-tests/run.sh — static E2E checks for core behaviors
 # Dependencies: node (v22+ with native TypeScript strip support)
 
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$SCRIPT_DIR"
 
 PASS=0; FAIL=0
 pass() { printf '\033[32m✓\033[0m %s\n' "$1"; PASS=$((PASS+1)); }
 fail() { printf '\033[31m✗\033[0m %s\n' "$1"; FAIL=$((FAIL+1)); }
 
-echo "=== E2E Tests: Validating code review findings ==="
+echo "=== E2E Tests ==="
 
 # ── 1. Shell injection via $() in filename ────────────────────────────────────
 echo ""
-echo "--- 1. Shell injection neutralized (shellQuote uses single-quote wrapping) ---"
+echo "--- 1. Shell injection via \$() in filenames is prevented ---"
 cmd=$(node --input-type=module << 'EOF'
 import { substituteVars } from '../substitute.ts'
 const result = substituteVars('echo', {
@@ -48,7 +49,7 @@ fi
 
 # ── 2. cli.mjs shell quoting ──────────────────────────────────────────────────
 echo ""
-echo "--- 2. cli.mjs substituteVars uses shellQuote ---"
+echo "--- 2. File paths are shell-quoted in cli.mjs ---"
 result=$(node --input-type=module << 'EOF'
 import { readFileSync } from 'node:fs'
 const src = readFileSync(new URL('../cli.mjs', import.meta.url), 'utf8')
@@ -65,7 +66,7 @@ fi
 
 # ── 3. session_id path traversal blocked ─────────────────────────────────────
 echo ""
-echo "--- 3. session_id validated before /tmp path ---"
+echo "--- 3. Path traversal via session_id is blocked ---"
 traversal_file="/tmp/TRAVERSAL_TARGET_$$"
 rm -f "$traversal_file"
 echo '{"tool_input":{"file_path":"/tmp/test.py"},"session_id":"../../tmp/TRAVERSAL_TARGET_'"$$"'"}' \
