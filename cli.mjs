@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * format-check CLI — Claude Code compat (pure ESM, no TypeScript)
+ * pi-edit-hooks CLI — Claude Code compat (pure ESM, no TypeScript)
  *
  * Subcommands:
  *   accumulate  read stdin JSON {tool_input: {file_path}, session_id}, append to /tmp/agent-edits-{session_id}
@@ -10,7 +10,7 @@
 import { exec as execCb } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, extname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 
 const exec = promisify(execCb)
@@ -22,6 +22,33 @@ const CHECKS_TIMEOUT_MS = 60_000
 
 const GLOBAL_CONFIG_PATH = join(homedir(), '.pi', 'agent', CONFIG_FILE)
 const GLOBAL_CONFIG_DIR = join(homedir(), '.pi', 'agent')
+
+// Maps file extensions to the manifest that anchors their workspace —
+// matches core.ts so the CLI uses the same cwd as the extension.
+const EXTENSION_MANIFEST = {
+  '.py':  'pyproject.toml',
+  '.pyi': 'pyproject.toml',
+  '.ts':  'package.json',
+  '.tsx': 'package.json',
+  '.js':  'package.json',
+  '.jsx': 'package.json',
+  '.mjs': 'package.json',
+  '.cjs': 'package.json',
+  '.rs':  'Cargo.toml',
+  '.go':  'go.mod',
+}
+
+// ── Shell quoting ─────────────────────────────────────────────────────────────
+
+/**
+ * Shell-quote a string using POSIX single-quote wrapping.
+ * Safe against $, `, !, spaces, \ and any other special characters in filenames.
+ */
+function shellQuote(s) {
+  return `'${s.replace(/'/g, "'\\''")}'`
+}
+
+// ── Config discovery ──────────────────────────────────────────────────────────
 
 function findConfig(filePath) {
   let dir = dirname(resolve(filePath))
@@ -56,6 +83,8 @@ function loadConfig(configPath) {
   }
 }
 
+// ── Project / manifest helpers ────────────────────────────────────────────────
+
 function findProjectRoot(filePath) {
   let dir = dirname(resolve(filePath))
   while (true) {
@@ -68,20 +97,38 @@ function findProjectRoot(filePath) {
   }
 }
 
-function findClosestPyprojectDir(filePath) {
+function findClosestManifestDir(filePath, manifest) {
   let dir = dirname(resolve(filePath))
   while (true) {
-    if (existsSync(`${dir}/pyproject.toml`)) return dir
+    if (existsSync(join(dir, manifest))) return dir
     const parent = dirname(dir)
     if (parent === dir) return null
     dir = parent
   }
 }
 
-function groupFilesByPyproject(files) {
+/**
+ * Group files by the directory of their nearest workspace manifest.
+ * Mirrors core.ts groupFilesByManifest so the CLI uses the same cwd as the
+ * extension for every file type (Python, TypeScript, Rust, Go…).
+ * An optional workspace override in the config takes precedence over
+ * the default extension-to-manifest mapping.
+ */
+function groupFilesByManifest(files, config) {
+  const ws = config?.workspace
   const groups = new Map()
   for (const file of files) {
-    const dir = findClosestPyprojectDir(file) ?? findProjectRoot(file)
+    let manifest
+    if (ws === false) {
+      manifest = null
+    } else if (typeof ws === 'string') {
+      manifest = ws
+    } else if (ws && typeof ws === 'object') {
+      manifest = findCommand(ws, file) ?? null
+    } else {
+      manifest = EXTENSION_MANIFEST[extname(file)] ?? null
+    }
+    const dir = (manifest ? findClosestManifestDir(file, manifest) : null) ?? findProjectRoot(file)
     const group = groups.get(dir) ?? []
     group.push(file)
     groups.set(dir, group)
@@ -89,11 +136,18 @@ function groupFilesByPyproject(files) {
   return groups
 }
 
+// ── Glob matching ─────────────────────────────────────────────────────────────
+
+/**
+ * Expand all brace groups recursively.
+ * Uses non-greedy match so multiple groups are handled correctly:
+ * "{a,b}.{c,d}" → ["a.c", "a.d", "b.c", "b.d"]
+ */
 function expandBraces(pattern) {
-  const m = pattern.match(/^(.*)\{([^}]+)\}(.*)$/)
+  const m = pattern.match(/^(.*?)\{([^}]+)\}(.*)$/)
   if (!m) return [pattern]
   const [, pre, inner, post] = m
-  return inner.split(',').map((part) => `${pre}${part}${post}`)
+  return inner.split(',').flatMap(part => expandBraces(`${pre}${part}${post}`))
 }
 
 function matchesGlob(file, pattern) {
@@ -101,7 +155,7 @@ function matchesGlob(file, pattern) {
   const expansions = expandBraces(pattern)
   for (const p of expansions) {
     const regex = new RegExp(
-      '^' + p.replace(/\./g, '\\.').replace(/\*/g, '.*') + '$'
+      '^' + p.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$'
     )
     if (regex.test(name)) return true
   }
@@ -115,17 +169,21 @@ function findCommand(globs, file) {
   return null
 }
 
+// ── Config resolution ─────────────────────────────────────────────────────────
+
 function isPathKeyed(config) {
   return Object.keys(config).some(key => key === '.' || key.includes('/'))
 }
 
 function resolvePathKeyedSection(config, filePath, configDir) {
   const absFile = resolve(filePath)
-  const relPath = absFile.startsWith(configDir + '/')
-    ? absFile.slice(configDir.length + 1)
+  const absConfigDir = resolve(configDir)
+  // Use proper relative path (same logic as resolve.ts)
+  const relParts = absFile.startsWith(absConfigDir + '/')
+    ? absFile.slice(absConfigDir.length + 1)
     : null
 
-  if (!relPath) return null
+  if (!relParts) return null
 
   const matches = []
   for (const [key, section] of Object.entries(config)) {
@@ -133,7 +191,7 @@ function resolvePathKeyedSection(config, filePath, configDir) {
       matches.push({ key, length: 0, section })
     } else {
       const normalizedKey = key.replace(/\/$/, '')
-      if (relPath === normalizedKey || relPath.startsWith(normalizedKey + '/')) {
+      if (relParts === normalizedKey || relParts.startsWith(normalizedKey + '/')) {
         matches.push({ key, length: normalizedKey.length, section })
       }
     }
@@ -162,12 +220,17 @@ function resolveOnStopSection(config, filePath, configDir) {
   return null
 }
 
+// ── Variable substitution ─────────────────────────────────────────────────────
+
 function substituteVars(cmd, file, projectRoot, configDir, allFiles) {
   const absFile = resolve(file)
   let result = cmd
 
   if (result.startsWith('./') || result.startsWith('../')) {
-    result = join(configDir, result)
+    const spaceIdx = result.indexOf(' ')
+    const rel = spaceIdx === -1 ? result : result.slice(0, spaceIdx)
+    const rest = spaceIdx === -1 ? '' : result.slice(spaceIdx)
+    result = shellQuote(join(configDir, rel)) + rest
   }
 
   // Auto-append {files} if no placeholder present (onStop mode)
@@ -176,14 +239,19 @@ function substituteVars(cmd, file, projectRoot, configDir, allFiles) {
     result = result + ' {files}'
   }
 
-  result = result.replace(/\{file\}/g, `"${absFile}"`)
-  result = result.replace(/\{projectRoot\}/g, `"${projectRoot}"`)
+  result = result.replace(/\{file\}/g, shellQuote(absFile))
+  // Capture path suffix so {projectRoot}/mypy.ini → '/root/mypy.ini' not '/root'/mypy.ini
+  result = result.replace(/\{projectRoot\}([^\s]*)/g, (_, suffix) =>
+    shellQuote(projectRoot + suffix),
+  )
   const filesArgs = allFiles
-    ? allFiles.map((f) => `"${resolve(f)}"`).join(' ')
-    : `"${absFile}"`
+    ? allFiles.map(f => shellQuote(resolve(f))).join(' ')
+    : shellQuote(absFile)
   result = result.replace(/\{files\}/g, filesArgs)
   return result
 }
+
+// ── Command runner ────────────────────────────────────────────────────────────
 
 async function runCommand(cmd, cwd, timeoutMs) {
   try {
@@ -198,6 +266,8 @@ async function runCommand(cmd, cwd, timeoutMs) {
   }
 }
 
+// ── Subcommands ───────────────────────────────────────────────────────────────
+
 async function accumulate() {
   let raw = ''
   for await (const chunk of process.stdin) raw += chunk
@@ -205,6 +275,13 @@ async function accumulate() {
   const filePath = data.tool_input?.file_path
   const sessionId = data.session_id
   if (!filePath || !sessionId) process.exit(0)
+
+  // Validate session_id to prevent path traversal via /tmp/agent-edits-<id>
+  if (!/^[a-zA-Z0-9_-]+$/.test(sessionId)) {
+    process.stderr.write(`[pi-edit-hooks] Invalid session_id: ${sessionId}\n`)
+    process.exit(0)
+  }
+
   const listFile = `/tmp/agent-edits-${sessionId}`
   appendFileSync(listFile, filePath + '\n', 'utf8')
   process.exit(0)
@@ -219,6 +296,12 @@ async function check() {
   // Loop guard
   if (stopHookActive === true) process.exit(0)
 
+  // Validate session_id to prevent path traversal
+  if (!sessionId || !/^[a-zA-Z0-9_-]+$/.test(sessionId)) {
+    process.stderr.write(`[pi-edit-hooks] Invalid session_id\n`)
+    process.exit(0)
+  }
+
   const listFile = `/tmp/agent-edits-${sessionId}`
   if (!existsSync(listFile)) process.exit(0)
 
@@ -230,11 +313,12 @@ async function check() {
   if (files.length === 0) process.exit(0)
 
   const allErrors = []
-  const liveFiles = files.filter((f) => existsSync(f))
+  const liveFiles = files.filter(f => existsSync(f))
 
-  // Group by nearest pyproject.toml so each invocation uses the correct
-  // workspace member as cwd — avoids wrong-project discovery with uv / basedpyright.
-  const groups = groupFilesByPyproject(liveFiles)
+  // Group by nearest workspace manifest (matches index.ts grouping logic)
+  const firstFound = findConfigWithGlobalFallback(liveFiles[0])
+  const firstConfig = firstFound ? loadConfig(firstFound.path) : null
+  const groups = groupFilesByManifest(liveFiles, firstConfig)
 
   for (const [groupDir, groupFiles] of groups) {
     const found = findConfigWithGlobalFallback(groupFiles[0])
@@ -297,11 +381,13 @@ async function check() {
   process.exit(0)
 }
 
+// ── Entry ─────────────────────────────────────────────────────────────────────
+
 const subcmd = process.argv[2]
 if (subcmd === 'accumulate') {
-  accumulate().catch((err) => { process.stderr.write(String(err) + '\n'); process.exit(1) })
+  accumulate().catch(err => { process.stderr.write(String(err) + '\n'); process.exit(1) })
 } else if (subcmd === 'check') {
-  check().catch((err) => { process.stderr.write(String(err) + '\n'); process.exit(1) })
+  check().catch(err => { process.stderr.write(String(err) + '\n'); process.exit(1) })
 } else {
   process.stderr.write(`Unknown subcommand: ${subcmd}\nUsage: cli.mjs accumulate|check\n`)
   process.exit(1)

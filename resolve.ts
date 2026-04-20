@@ -128,14 +128,32 @@ export function resolveConfig(
     projectRoot = global!.configDir
   }
 
-  const globalSection =
-    global && !isPathKeyedConfig(global.config) ? (global.config as FlatConfig) : null
+  // Path-keyed global configs are not supported: global config applies
+  // project-wide, so per-path overrides at the global level don't make sense.
+  // Emit a warning so users aren't silently confused.
+  let globalSection: FlatConfig | null = null
+  if (global) {
+    if (isPathKeyedConfig(global.config)) {
+      console.warn(
+        '[pi-edit-hooks] Global config (~/.pi/agent/edit-hooks.json) uses path-keyed format, ' +
+        'which is not supported at global scope and will be ignored. ' +
+        'Use flat format (onEdit/onStop at the top level) for the global config.',
+      )
+    } else {
+      globalSection = global.config as FlatConfig
+    }
+  }
 
   const merged = mergeConfigs(globalSection, projectSection)
+
+  // Thread workspace through from the winning section so callers can use it
+  // for groupFilesByManifest. Project workspace takes precedence over global.
+  const workspace = projectSection?.workspace ?? globalSection?.workspace
 
   return {
     onEdit: merged.onEdit,
     onStop: merged.onStop,
     projectRoot,
+    ...(workspace !== undefined ? { workspace } : {}),
   }
 }

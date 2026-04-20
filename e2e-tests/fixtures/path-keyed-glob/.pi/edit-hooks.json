@@ -1,0 +1,1 @@
+{ "onEdit": { "src/*.ts": "echo typescript" } }

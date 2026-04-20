@@ -26,6 +26,8 @@ export interface ResolvedConfig {
   onEdit: GlobCommands | null
   onStop: GlobCommands | null
   projectRoot: string
+  /** Workspace manifest override, threaded through from FlatConfig for grouping */
+  workspace?: string | Record<string, string> | false
 }
 
 export interface FoundConfig {

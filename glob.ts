@@ -3,20 +3,25 @@ import { basename } from 'node:path'
 import type { CommandValue, GlobCommands } from './types.ts'
 
 /**
- * Expand a single brace group in a glob pattern.
+ * Expand all brace groups in a glob pattern recursively.
  * "*.{ts,tsx}" → ["*.ts", "*.tsx"]
- * No nested braces support (not needed for config use cases).
+ * "{a,b}.{c,d}" → ["a.c", "a.d", "b.c", "b.d"]
+ *
+ * Uses a non-greedy match so the FIRST brace group is expanded at each
+ * recursion level, producing correct combinatorial expansion for patterns
+ * with multiple groups.
  */
 export function expandBraces(pattern: string): string[] {
-  const m = pattern.match(/^(.*)\{([^}]+)\}(.*)$/)
+  const m = pattern.match(/^(.*?)\{([^}]+)\}(.*)$/)
   if (!m) return [pattern]
   const [, pre, inner, post] = m
-  return inner.split(',').map((part) => `${pre}${part}${post}`)
+  return inner.split(',').flatMap(part => expandBraces(`${pre}${part}${post}`))
 }
 
 /**
  * Test if a file matches a glob pattern.
- * Matches against basename only (no path components).
+ * Matches against basename only — path components in the pattern are not
+ * supported by design. Use path-keyed config sections for directory scoping.
  * Supports * wildcard and brace expansion.
  */
 export function matchesGlob(file: string, pattern: string): boolean {

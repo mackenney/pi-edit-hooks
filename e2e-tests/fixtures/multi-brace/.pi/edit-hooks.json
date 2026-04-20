@@ -1,0 +1,1 @@
+{ "onEdit": { "*.{test,spec}.{ts,js}": "echo test-file" } }
