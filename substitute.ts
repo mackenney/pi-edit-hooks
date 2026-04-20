@@ -44,7 +44,9 @@ export function substituteVars(cmd: string, opts: SubstituteOptions): string {
   }
 
   result = result.replace(/\{file\}/g, shellQuote(absFile))
-  result = result.replace(/\{projectRoot\}/g, shellQuote(opts.projectRoot))
+  // Capture any path suffix after {projectRoot} (e.g. "/mypy.ini") so the
+  // whole expanded token is quoted together: "/project/mypy.ini" not "/project"/mypy.ini
+  result = result.replace(/\{projectRoot\}([^\s"']*)/g, (_, suffix) => shellQuote(opts.projectRoot + suffix))
 
   if (opts.mode === 'onStop' && opts.files && opts.files.length > 0) {
     const filesArg = opts.files.map(f => shellQuote(resolve(f))).join(' ')
