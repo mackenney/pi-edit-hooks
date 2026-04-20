@@ -4,34 +4,24 @@
  *
  * Subcommands:
  *   accumulate  read stdin JSON {tool_input: {file_path}, session_id}, append to /tmp/agent-edits-{session_id}
- *   check       read stdin JSON {session_id, stop_hook_active}, run format/lint/typecheck on accumulated files
+ *   check       read stdin JSON {session_id, stop_hook_active}, run onStop hooks on accumulated files
  */
 
 import { exec as execCb } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs'
-import { basename, dirname, resolve } from 'node:path'
+import { homedir } from 'node:os'
+import { basename, dirname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 
 const exec = promisify(execCb)
 
-// ── Constants ──────────────────────────────────────────────────────────────────
-
-const CONFIG_DIR = '.agent'
-const CONFIG_FILE = 'tools.json'
+const CONFIG_DIR = '.pi'
+const CONFIG_FILE = 'edit-hooks.json'
 const PROJECT_MARKERS = ['.git', 'pyproject.toml', 'package.json', 'Cargo.toml', 'go.mod']
 const CHECKS_TIMEOUT_MS = 60_000
 
-const DEFAULT_FORMAT = {
-  '*.{py,pyi}': 'uv run ruff format --force-exclude {file}',
-}
-const DEFAULT_LINT = {
-  '*.{py,pyi}': 'uv run ruff check --force-exclude --fix {file}',
-}
-const DEFAULT_TYPECHECK = {
-  '*.py': 'uv run basedpyright {file}',
-}
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
+const GLOBAL_CONFIG_PATH = join(homedir(), '.pi', 'agent', CONFIG_FILE)
+const GLOBAL_CONFIG_DIR = join(homedir(), '.pi', 'agent')
 
 function findConfig(filePath) {
   let dir = dirname(resolve(filePath))
@@ -47,6 +37,15 @@ function findConfig(filePath) {
     if (parent === dir) return null
     dir = parent
   }
+}
+
+function findConfigWithGlobalFallback(filePath) {
+  const local = findConfig(filePath)
+  if (local) return local
+  if (existsSync(GLOBAL_CONFIG_PATH)) {
+    return { path: GLOBAL_CONFIG_PATH, dir: GLOBAL_CONFIG_DIR }
+  }
+  return null
 }
 
 function loadConfig(configPath) {
@@ -116,12 +115,67 @@ function findCommand(globs, file) {
   return null
 }
 
+function isPathKeyed(config) {
+  return Object.keys(config).some(key => key === '.' || key.includes('/'))
+}
+
+function resolvePathKeyedSection(config, filePath, configDir) {
+  const absFile = resolve(filePath)
+  const relPath = absFile.startsWith(configDir + '/')
+    ? absFile.slice(configDir.length + 1)
+    : null
+
+  if (!relPath) return null
+
+  const matches = []
+  for (const [key, section] of Object.entries(config)) {
+    if (key === '.') {
+      matches.push({ key, length: 0, section })
+    } else {
+      const normalizedKey = key.replace(/\/$/, '')
+      if (relPath === normalizedKey || relPath.startsWith(normalizedKey + '/')) {
+        matches.push({ key, length: normalizedKey.length, section })
+      }
+    }
+  }
+
+  if (matches.length === 0) return null
+  matches.sort((a, b) => b.length - a.length)
+  return matches[0].section
+}
+
+function resolveOnStopSection(config, filePath, configDir) {
+  if (config === null) return null
+
+  let flatConfig = config
+  if (isPathKeyed(config)) {
+    const section = resolvePathKeyedSection(config, filePath, configDir)
+    if (section === false) return null
+    flatConfig = section
+  }
+
+  if (!flatConfig) return null
+
+  const val = flatConfig.onStop
+  if (val === false) return null
+  if (val && typeof val === 'object') return val
+  return null
+}
+
 function substituteVars(cmd, file, projectRoot, configDir, allFiles) {
   const absFile = resolve(file)
   let result = cmd
+
   if (result.startsWith('./') || result.startsWith('../')) {
-    result = `${configDir}/${result}`
+    result = join(configDir, result)
   }
+
+  // Auto-append {files} if no placeholder present (onStop mode)
+  const hasPlaceholder = result.includes('{file}') || result.includes('{files}')
+  if (!hasPlaceholder) {
+    result = result + ' {files}'
+  }
+
   result = result.replace(/\{file\}/g, `"${absFile}"`)
   result = result.replace(/\{projectRoot\}/g, `"${projectRoot}"`)
   const filesArgs = allFiles
@@ -143,16 +197,6 @@ async function runCommand(cmd, cwd, timeoutMs) {
     }
   }
 }
-
-function resolveSection(config, key, defaults) {
-  if (config === null) return defaults
-  const val = config[key]
-  if (val === false) return null
-  if (val && typeof val === 'object') return val
-  return null
-}
-
-// ── Subcommands ────────────────────────────────────────────────────────────────
 
 async function accumulate() {
   let raw = ''
@@ -193,52 +237,46 @@ async function check() {
   const groups = groupFilesByPyproject(liveFiles)
 
   for (const [groupDir, groupFiles] of groups) {
-    const found = findConfig(groupFiles[0])
-    const config = found ? loadConfig(found.path) : null
-    const configDir = found?.dir ?? groupDir
+    const found = findConfigWithGlobalFallback(groupFiles[0])
+    if (!found) continue  // No config = no checks
+
+    const config = loadConfig(found.path)
+    const configDir = found.dir
     const cwd = groupDir
 
-    const formatGlobs = resolveSection(config, 'format', DEFAULT_FORMAT)
-    const lintGlobs   = resolveSection(config, 'lint',   DEFAULT_LINT)
-    const tcGlobs     = resolveSection(config, 'typecheck', DEFAULT_TYPECHECK)
-
-    const sections = [
-      [formatGlobs, false, 'format'],
-      [lintGlobs,   true,  'lint'],
-      [tcGlobs,     true,  'typecheck'],
-    ]
+    const onStopGlobs = resolveOnStopSection(config, groupFiles[0], configDir)
+    if (!onStopGlobs) continue  // onStop disabled or not defined
 
     const groupErrors = []
 
-    for (const [globs, fatal, label] of sections) {
-      if (!globs) continue
+    // Bucket files by matching command template
+    const cmdToFiles = new Map()
+    for (const file of groupFiles) {
+      const rawCmd = findCommand(onStopGlobs, file)
+      if (!rawCmd) continue
+      const bucket = cmdToFiles.get(rawCmd) ?? []
+      bucket.push(file)
+      cmdToFiles.set(rawCmd, bucket)
+    }
 
-      // Bucket files by matching command template
-      const cmdToFiles = new Map()
-      for (const file of groupFiles) {
-        const rawCmd = findCommand(globs, file)
-        if (!rawCmd) continue
-        const bucket = cmdToFiles.get(rawCmd) ?? []
-        bucket.push(file)
-        cmdToFiles.set(rawCmd, bucket)
-      }
+    for (const [rawCmd, matchedFiles] of cmdToFiles) {
+      const usesBatch = rawCmd.includes('{files}') ||
+                        (!rawCmd.includes('{file}') && !rawCmd.includes('{files}'))
 
-      for (const [rawCmd, matchedFiles] of cmdToFiles) {
-        if (rawCmd.includes('{files}')) {
-          const cmd = substituteVars(rawCmd, matchedFiles[0], cwd, configDir, matchedFiles)
+      if (usesBatch) {
+        const cmd = substituteVars(rawCmd, matchedFiles[0], cwd, configDir, matchedFiles)
+        const result = await runCommand(cmd, cwd, CHECKS_TIMEOUT_MS)
+        if (result.failed) {
+          const output = (result.stderr + result.stdout).trim()
+          if (output) groupErrors.push(`[onStop] ${output}`)
+        }
+      } else {
+        for (const file of matchedFiles) {
+          const cmd = substituteVars(rawCmd, file, cwd, configDir)
           const result = await runCommand(cmd, cwd, CHECKS_TIMEOUT_MS)
-          if (fatal && result.failed) {
+          if (result.failed) {
             const output = (result.stderr + result.stdout).trim()
-            if (output) groupErrors.push(`[${label}] ${output}`)
-          }
-        } else {
-          for (const file of matchedFiles) {
-            const cmd = substituteVars(rawCmd, file, cwd, configDir)
-            const result = await runCommand(cmd, cwd, CHECKS_TIMEOUT_MS)
-            if (fatal && result.failed) {
-              const output = (result.stderr + result.stdout).trim()
-              if (output) groupErrors.push(`[${label}] ${output}`)
-            }
+            if (output) groupErrors.push(`[onStop] ${output}`)
           }
         }
       }
@@ -258,8 +296,6 @@ async function check() {
 
   process.exit(0)
 }
-
-// ── Entry ──────────────────────────────────────────────────────────────────────
 
 const subcmd = process.argv[2]
 if (subcmd === 'accumulate') {
