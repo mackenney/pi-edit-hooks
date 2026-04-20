@@ -1,21 +1,29 @@
 {
   "name": "pi-edit-hooks",
   "version": "0.1.0",
-  "description": "Code quality hooks for pi coding agent — runs checks after file edits",
+  "description": "Code quality hooks for the pi coding agent — runs syntax checks on edit and format/lint/typecheck at turn end",
   "type": "module",
+  "license": "MIT",
   "keywords": [
     "pi-package",
-    "pi-coding-agent",
-    "extension",
+    "pi-extension",
+    "pi",
     "format",
     "lint",
-    "typecheck"
+    "typecheck",
+    "hooks"
   ],
-  "pi": {
-    "extension": "./index.ts"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ignaciolarranaga/pi-edit-hooks"
   },
-  "bin": {
-    "pi-edit-hooks": "./cli.mjs"
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "index.ts",
@@ -25,12 +33,30 @@
     "discover.ts",
     "resolve.ts",
     "core.ts",
-    "cli.mjs"
+    "cli.mjs",
+    "README.md",
+    "edit-hooks.example.json",
+    "edit-hooks.path-keyed.example.json"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/user/pi-edit-hooks"
+  "bin": {
+    "pi-edit-hooks": "./cli.mjs"
   },
-  "author": "",
-  "license": "MIT"
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run typecheck",
+    "pack:preview": "npm pack --dry-run"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@mariozechner/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  }
 }

@@ -69,10 +69,10 @@ export function mergeConfigs(
   let onStop: GlobCommands | null = null
 
   if (global) {
-    if (global.onEdit && global.onEdit !== false) {
+    if (global.onEdit) {
       onEdit = global.onEdit
     }
-    if (global.onStop && global.onStop !== false) {
+    if (global.onStop) {
       onStop = global.onStop
     }
   }
