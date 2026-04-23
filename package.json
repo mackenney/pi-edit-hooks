@@ -40,11 +40,16 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run check && npm run typecheck && npm test",
+    "prepublishOnly": "npm run check && npm run typecheck && npm run test:all",
     "pack:preview": "npm pack --dry-run",
     "test": "bash e2e-tests/run.sh",
+    "test:mock": "vitest run test/integration/mock-server.test.ts",
+    "test:real": "vitest run test/integration/real-api.test.ts",
+    "test:integration": "vitest run test/integration",
     "test:live": "node --env-file .env --experimental-strip-types e2e-tests/live.ts",
-    "test:all": "npm run test && npm run test:live",
+    "test:verify": "bash test-repos/verify.sh",
+    "test:all": "npm run test:verify && npm run test && npm run test:integration",
+    "test:compat": "bash scripts/test-compat.sh",
     "lint": "biome lint src/ e2e-tests/live.ts",
     "format": "biome format --write src/ e2e-tests/live.ts",
     "check": "biome check src/ e2e-tests/live.ts"
@@ -59,11 +64,10 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
-    "@mariozechner/pi-ai": "^0.68.0",
-    "@biomejs/biome": "^2.4.12",
     "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-coding-agent": "*",
     "@types/node": "^24.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^3.0.0"
   }
 }

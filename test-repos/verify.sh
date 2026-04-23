@@ -32,7 +32,7 @@ test_glob() {
   local pattern="$1" file="$2" expected="$3"
   local result
   result=$(node --input-type=module << EOF 2>&1 || echo "ERROR"
-import { matchesGlob } from '${PROJECT_ROOT}/glob.ts'
+import { matchesGlob } from '${PROJECT_ROOT}/src/glob.ts'
 console.log(matchesGlob('${file}', '${pattern}'))
 EOF
 )
@@ -62,7 +62,7 @@ test_path_key() {
   local config_json="$1" file="$2" config_dir="$3" expected_key="$4"
   local result
   result=$(node --input-type=module << EOF 2>&1 || echo "ERROR"
-import { resolvePathKeyedSection } from '${PROJECT_ROOT}/resolve.ts'
+import { resolvePathKeyedSection } from '${PROJECT_ROOT}/src/resolve.ts'
 const config = ${config_json}
 const section = resolvePathKeyedSection(config, '${file}', '${config_dir}')
 if (section === false) console.log('false')
@@ -91,7 +91,7 @@ test_subst() {
   local cmd="$1" mode="$2" check="$3"
   local result
   result=$(node --input-type=module << EOF 2>&1 || echo "ERROR"
-import { substituteVars } from '${PROJECT_ROOT}/substitute.ts'
+import { substituteVars } from '${PROJECT_ROOT}/src/substitute.ts'
 const r = substituteVars('${cmd}', {
   file: '/tmp/test.py',
   files: ['/tmp/a.py', '/tmp/b.py'],
@@ -126,7 +126,7 @@ test_discovery() {
   local fixture_dir="${SCRIPT_DIR}/${fixture}"
   local result
   result=$(node --input-type=module << EOF 2>&1 || echo "ERROR"
-import { findProjectConfig } from '${PROJECT_ROOT}/discover.ts'
+import { findProjectConfig } from '${PROJECT_ROOT}/src/discover.ts'
 const found = findProjectConfig('${fixture_dir}/${file_rel}', '${fixture_dir}')
 console.log(found ? 'found' : 'not-found')
 EOF
@@ -153,7 +153,7 @@ test_type_guard() {
   local config="$1" expected="$2" desc="$3"
   local result
   result=$(node --input-type=module << EOF 2>&1 || echo "ERROR"
-import { isPathKeyedConfig } from '${PROJECT_ROOT}/types.ts'
+import { isPathKeyedConfig } from '${PROJECT_ROOT}/src/types.ts'
 const config = ${config}
 console.log(isPathKeyedConfig(config))
 EOF
@@ -179,7 +179,7 @@ test_normalize() {
   local value="$1" expected="$2"
   local result
   result=$(node --input-type=module << EOF 2>&1 || echo "ERROR"
-import { normalizeCommand } from '${PROJECT_ROOT}/glob.ts'
+import { normalizeCommand } from '${PROJECT_ROOT}/src/glob.ts'
 const v = ${value}
 const r = normalizeCommand(v)
 console.log(JSON.stringify(r))
