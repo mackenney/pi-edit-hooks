@@ -3,7 +3,6 @@ import { homedir } from "node:os";
 import {
 	AuthStorage,
 	createAgentSession,
-	createWriteTool,
 	DefaultResourceLoader,
 	ModelRegistry,
 	SessionManager,
@@ -43,8 +42,8 @@ export interface TestSessionOptions {
  * The mock provider (if mockBaseUrl is set) redirects Anthropic traffic to a
  * local HTTP server, so tests never make real API calls.
  *
- * Tools: only the write tool is registered. The mock server instructs the agent
- * to call it; the extension's tool_result handler then fires and runs onEdit hooks.
+ * Tools: no explicit tools option — both pi 0.67.x (Tool[]) and pi 0.68.x+ (string[])
+ * default to ["read","bash","edit","write"]. The mock server only calls write.
  */
 export async function createTestSession(options: TestSessionOptions) {
 	const { cwd, mockBaseUrl, extraFactories = [] } = options;
@@ -92,8 +91,9 @@ export async function createTestSession(options: TestSessionOptions) {
 		model,
 		cwd,
 		resourceLoader: loader,
-		// Only the write tool: the mock server calls it; the extension watches it.
-		tools: [createWriteTool(cwd)],
+		// No explicit tools: both pi 0.67.x (tools: Tool[]) and pi 0.68.x+ (tools: string[])
+		// default to ["read","bash","edit","write"], so write is always available.
+		// The mock server only calls write, so other tools being present is harmless.
 		sessionManager: SessionManager.inMemory(),
 		settingsManager: SettingsManager.inMemory({
 			compaction: { enabled: false },

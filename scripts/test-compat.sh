@@ -3,19 +3,30 @@
 #
 # Discovers the latest patch release for the last N minor versions of
 # @mariozechner/pi-coding-agent from the npm registry, installs each with
-# --no-save (so package.json is untouched), runs the mock-server integration
-# tests (no API key required), then restores the original lockfile via npm ci.
+# --no-save (so package.json is untouched), runs the full test suite
+# (bash e2e, mock-server vitest, real-api vitest, live SDK sessions),
+# then restores the original lockfile via npm ci.
+#
+# Requires ANTHROPIC_API_KEY to be set (real-api and live tests).
+# Read from .env if not already exported:
+#   export ANTHROPIC_API_KEY=$(grep ANTHROPIC_API_KEY .env | cut -d= -f2)
 #
 # Usage:
 #   bash scripts/test-compat.sh          # test last 3 minor versions (default)
 #   bash scripts/test-compat.sh 5        # test last 5 minor versions
-#   SKIP_E2E=1 bash scripts/test-compat.sh  # skip bash e2e tests
+#   SKIP_E2E=1 bash scripts/test-compat.sh  # skip bash e2e tests (keep real-api + live)
 
 set -euo pipefail
 
 PACKAGE="@mariozechner/pi-coding-agent"
 N_MINORS="${1:-3}"
 SKIP_E2E="${SKIP_E2E:-}"
+
+if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+  echo "ERROR: ANTHROPIC_API_KEY is not set." >&2
+  echo "  export ANTHROPIC_API_KEY=\$(grep ANTHROPIC_API_KEY .env | cut -d= -f2)" >&2
+  exit 1
+fi
 
 # ── Resolve target versions ──────────────────────────────────────────────────
 
@@ -92,6 +103,22 @@ for VERSION in $VERSIONS; do
 
   echo -n "  integration/mock  ... "
   if npx vitest run test/integration/mock-server.test.ts --reporter=verbose >>"$LOG" 2>&1; then
+    echo "✓"
+  else
+    echo "✗"
+    FAILED=true
+  fi
+
+  echo -n "  integration/real  ... "
+  if ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" npx vitest run test/integration/real-api.test.ts --reporter=verbose >>"$LOG" 2>&1; then
+    echo "✓"
+  else
+    echo "✗"
+    FAILED=true
+  fi
+
+  echo -n "  live (SDK)        ... "
+  if ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" node --experimental-strip-types e2e-tests/live.ts >>"$LOG" 2>&1; then
     echo "✓"
   else
     echo "✗"

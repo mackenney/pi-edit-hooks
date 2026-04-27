@@ -15,14 +15,13 @@
  */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { getModel } from '@mariozechner/pi-ai';
 import {
   type AgentSession,
   AuthStorage,
   createAgentSession,
-  createCodingTools,
   DefaultResourceLoader,
   ModelRegistry,
   SessionManager,
@@ -55,8 +54,12 @@ async function makeSession(cwd: string) {
   const model = getModel('anthropic', MODEL_ID);
   if (!model) throw new Error(`Model ${MODEL_ID} not found`);
 
+  // agentDir became required (non-defaulted) in pi 0.68.x.
+  const agentDir = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), '.pi', 'agent');
+
   const loader = new DefaultResourceLoader({
     cwd,
+    agentDir,
     additionalExtensionPaths: [EXTENSION_PATH],
     systemPromptOverride: () =>
       'You are a test assistant. When asked to write a file, call the write tool ' +
@@ -72,7 +75,8 @@ async function makeSession(cwd: string) {
     authStorage,
     modelRegistry,
     resourceLoader: loader,
-    tools: createCodingTools(cwd),
+    // No explicit tools: both pi 0.67.x (Tool[]) and pi 0.68.x+ (string[])
+    // default to ["read","bash","edit","write"].
     sessionManager: SessionManager.inMemory(),
     settingsManager: SettingsManager.inMemory({
       compaction: { enabled: false },
