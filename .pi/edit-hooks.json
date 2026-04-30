@@ -1,0 +1,11 @@
+{
+  "onEdit": {
+    "*.{ts,mjs}": "esbuild {file} > /dev/null"
+  },
+  "onStop": {
+    "*.{ts,mjs}": [
+      "biome check --write {files}",
+      "tsc --noEmit"
+    ]
+  }
+}
