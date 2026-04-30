@@ -254,8 +254,16 @@ export function substituteVars(
 // ── Command runner ────────────────────────────────────────────────────────────
 
 export async function runCommand(cmd: string, cwd: string, timeoutMs: number): Promise<RunResult> {
+  // Inject cwd/node_modules/.bin into PATH so project-local binaries (biome,
+  // tsc, etc.) are available by name — matching how npm scripts work.
+  const localBin = `${cwd}/node_modules/.bin`;
+  const PATH = process.env.PATH ? `${localBin}:${process.env.PATH}` : localBin;
   try {
-    const { stdout, stderr } = await exec(cmd, { cwd, timeout: timeoutMs });
+    const { stdout, stderr } = await exec(cmd, {
+      cwd,
+      timeout: timeoutMs,
+      env: { ...process.env, PATH },
+    });
     return { stdout: stdout ?? '', stderr: stderr ?? '', failed: false };
   } catch (err: any) {
     return {
