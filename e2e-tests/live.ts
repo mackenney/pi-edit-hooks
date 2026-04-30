@@ -145,8 +145,8 @@ await test('onEdit: output appended to tool result', async () => {
     if (!text.includes('EDIT_HOOK_FIRED')) {
       throw new Error('onEdit output "EDIT_HOOK_FIRED" not found in session messages');
     }
-    if (!text.includes('⚠ onEdit:')) {
-      throw new Error('onEdit prefix "⚠ onEdit:" not found in session messages');
+    if (!text.includes('⚠ onEdit')) {
+      throw new Error('onEdit prefix "⚠ onEdit" not found in session messages');
     }
   } finally {
     cleanup();
@@ -154,7 +154,7 @@ await test('onEdit: output appended to tool result', async () => {
 });
 
 // ── 2. onStop passes silently — no follow-up sent ─────────────────────────────
-await test('onStop: passes silently when command exits 0', async () => {
+await test('onStop: clean run sends informational follow-up, no errors', async () => {
   const { dir, cleanup } = makeProject({
     onStop: { '*.py': 'echo ALL_GOOD' },
   });
@@ -167,8 +167,12 @@ await test('onStop: passes silently when command exits 0', async () => {
     await new Promise((r) => setTimeout(r, 3_000));
 
     const text = allText(session);
-    if (text.includes('Checks failed after edits')) {
-      throw new Error('Unexpected "Checks failed" follow-up — onStop should have passed silently');
+    const found = await waitFor(session, (t) => t.includes('onStop checks after edits'));
+    if (!found) {
+      throw new Error('Expected informational onStop follow-up not found');
+    }
+    if (text.includes('✗')) {
+      throw new Error('Unexpected error in onStop follow-up');
     }
   } finally {
     cleanup();
@@ -186,10 +190,10 @@ await test('onStop: failure sends follow-up with error output', async () => {
 
     // Poll: extension's agent_end fires async after prompt() returns, then
     // executes the shell command, then queues the follow-up user message.
-    const found = await waitFor(session, (t) => t.includes('Checks failed after edits'));
+    const found = await waitFor(session, (t) => t.includes('onStop checks after edits'));
     if (!found) {
       throw new Error(
-        'Timed out waiting for "Checks failed after edits" follow-up.\n' +
+        'Timed out waiting for "onStop checks after edits" follow-up.\n' +
           `Messages: ${allText(session).slice(0, 600)}`,
       );
     }

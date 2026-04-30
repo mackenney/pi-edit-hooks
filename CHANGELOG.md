@@ -2,6 +2,12 @@
 
 ## 0.2.0 — 2026-04-30
 
+### Compatibility
+
+- Tested against pi@0.68.1, pi@0.69.0, pi@0.70.6 — all pass
+- Lockfile updated to pi@0.70.6
+- `e2e-tests/live.ts` assertions updated to match new output format (missed in initial 0.2.0 commits)
+
 ### onEdit output format
 
 - Header changed from `⚠ onEdit: <filepath>` to `⚠ onEdit` — file path was redundant since it is embedded in the substituted command
