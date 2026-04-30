@@ -1,5 +1,5 @@
 import { relative, resolve } from 'node:path';
-import { CONFIG_DIR, CONFIG_FILE, GLOBAL_CONFIG_PATH, discoverConfigs } from './discover.ts';
+import { CONFIG_DIR, CONFIG_FILE, discoverConfigs, GLOBAL_CONFIG_PATH } from './discover.ts';
 import type { FlatConfig, GlobCommands, PathKeyedConfig, ResolvedConfig } from './types.ts';
 import { isPathKeyedConfig } from './types.ts';
 

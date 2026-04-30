@@ -5,7 +5,7 @@
   "onEdit": {
     "*.py": "python3 -c 'import ast,sys;ast.parse(open(sys.argv[1]).read(),sys.argv[1])' {file}",
     "*.{js,mjs,cjs}": "node --check {file}",
-    "*.{ts,tsx}": "node --check {file}",
+    "*.{ts,tsx}": "esbuild {file} > /dev/null",
     "*.json": "python3 -m json.tool {file} >/dev/null"
   },
 
@@ -13,7 +13,7 @@
     "*.py": [
       "uv run ruff format --force-exclude {files}",
       "uv run ruff check --force-exclude --fix {files}",
-      "uv run basedpyright {files}"
+      "uv run ty check {files}"
     ],
     "*.{ts,tsx}": "npx tsc --noEmit"
   }

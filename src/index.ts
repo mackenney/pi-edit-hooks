@@ -169,13 +169,12 @@ export default function (pi: ExtensionAPI) {
     const colorLine = (line: string) => {
       if (line.startsWith('✓')) return theme.fg('success', line);
       if (line.startsWith('✗')) return theme.fg('error', line);
-      if (line.startsWith('**')) return theme.bold(line.replace(/\*\*/g, '') + ':');
+      if (line.startsWith('**')) return theme.bold(`${line.replace(/\*\*/g, '')}:`);
       return theme.fg('dim', line);
     };
 
-    const visible = !expanded && lines.length > COLLAPSED_LINES
-      ? lines.slice(0, COLLAPSED_LINES)
-      : lines;
+    const visible =
+      !expanded && lines.length > COLLAPSED_LINES ? lines.slice(0, COLLAPSED_LINES) : lines;
 
     let rendered = visible.map(colorLine).join('\n');
 

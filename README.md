@@ -45,13 +45,13 @@ contamination and no need to wrangle paths manually.
 ## Array Commands
 
 A command value can be a string or an array of strings. When an array is given,
-each command runs in sequence and a non-zero exit from any step stops the chain:
+each command runs in sequence — all steps always run regardless of exit codes:
 
 ```json
 "*.py": [
   "uv run ruff format {files}",
   "uv run ruff check --fix {files}",
-  "uv run basedpyright {files}"
+  "uv run ty check {files}"
 ]
 ```
 
@@ -96,13 +96,14 @@ Minimal project setup:
 {
   "onEdit": {
     "*.py": "python3 -c 'import ast,sys;ast.parse(open(sys.argv[1]).read())' {file}",
-    "*.{js,mjs,ts,tsx}": "node --check {file}"
+    "*.{js,mjs,cjs}": "node --check {file}",
+    "*.{ts,tsx}": "esbuild {file} > /dev/null"
   },
   "onStop": {
     "*.py": [
       "uv run ruff format {files}",
       "uv run ruff check --fix {files}",
-      "uv run basedpyright {files}"
+      "uv run ty check {files}"
     ],
     "*.{ts,tsx}": "npx tsc --noEmit"
   }
