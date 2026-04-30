@@ -11,7 +11,7 @@
  *   - Request 2: the agent sends the modified conversation back. Tests assert
  *     on the captured request 2 body (which includes the injected hook text).
  *   - Request 3+ (onStop failure): the extension's agent_end handler fires,
- *     runs onStop hooks, and calls pi.sendUserMessage to trigger a follow-up
+ *     runs onStop hooks, and calls pi.sendMessage to trigger a follow-up
  *     turn. Tests assert on the captured request 3 body.
  */
 
@@ -68,7 +68,9 @@ describe("pi-edit-hooks extension — mock server", () => {
 		expect(server.requests).toHaveLength(2);
 		const toolResultText = collectToolResultText(server.requests[1].body);
 		expect(toolResultText).toContain("HOOK_FIRED");
-		expect(toolResultText).toContain("⚠ onEdit:");
+		expect(toolResultText).toContain("⚠ onEdit");
+		expect(toolResultText).toContain("config:");
+		expect(toolResultText).toContain("commands:");
 	});
 
 	it("onEdit with no matching glob pattern — no hook text in tool result", async () => {
@@ -87,7 +89,7 @@ describe("pi-edit-hooks extension — mock server", () => {
 		expect(server.requests).toHaveLength(2);
 		const toolResultText = collectToolResultText(server.requests[1].body);
 		expect(toolResultText).not.toContain("TS_HOOK");
-		expect(toolResultText).not.toContain("⚠ onEdit:");
+		expect(toolResultText).not.toContain("⚠ onEdit");
 	});
 
 	it("onEdit with array commands — each command runs and all output appears", async () => {
@@ -109,7 +111,7 @@ describe("pi-edit-hooks extension — mock server", () => {
 		expect(toolResultText).toContain("STEP_TWO");
 	});
 
-	it("onStop: passes silently — no follow-up request when command exits 0", async () => {
+	it("onStop: clean run sends informational follow-up without triggering a new turn", async () => {
 		const { dir, pyFile, cleanup: c } = makeProject({
 			onStop: { "*.py": "echo ALL_GOOD" },
 		});
@@ -122,7 +124,7 @@ describe("pi-edit-hooks extension — mock server", () => {
 		const session = await createTestSession({ cwd: dir, mockBaseUrl: mockUrl });
 		await session.prompt("write test.py");
 
-		// Give agent_end handler time to execute and confirm it did NOT send a follow-up.
+		// Give agent_end handler time to execute. triggerTurn: false means no new API request.
 		await new Promise((r) => setTimeout(r, 1_500));
 		expect(server.requests).toHaveLength(2);
 	});
@@ -145,7 +147,7 @@ describe("pi-edit-hooks extension — mock server", () => {
 		expect(arrived).toBe(true);
 
 		const followUpText = getLastUserMessageText(server.requests[2].body);
-		expect(followUpText).toContain("Checks failed after edits");
+		expect(followUpText).toContain("onStop checks after edits");
 		expect(followUpText).toContain("STOP_ERR");
 	});
 
@@ -169,7 +171,7 @@ describe("pi-edit-hooks extension — mock server", () => {
 		expect(server.requests).toHaveLength(2);
 		const toolResultText = collectToolResultText(server.requests[1].body);
 		expect(toolResultText).not.toContain("ROOT_HOOK");
-		expect(toolResultText).not.toContain("⚠ onEdit:");
+		expect(toolResultText).not.toContain("⚠ onEdit");
 	});
 
 	it("the mock server captured the correct number of requests", async () => {

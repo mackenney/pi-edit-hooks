@@ -1,6 +1,8 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
+import { keyHint } from '@mariozechner/pi-coding-agent';
+import { Text } from '@mariozechner/pi-tui';
 import { CHECKS_TIMEOUT_MS, groupFilesByManifest, runCommand, SYNTAX_TIMEOUT_MS } from './core.ts';
 import { getGitRoot } from './discover.ts';
 import { findCommand, normalizeCommand } from './glob.ts';
@@ -26,7 +28,7 @@ async function runOnEditCommands(
   filePath: string,
   globs: GlobCommands,
   projectRoot: string,
-): Promise<string | null> {
+): Promise<{ output: string; failed: boolean; cmds: string[] } | null> {
   const commandValue = findCommand(globs, filePath);
   if (commandValue === null) return null;
 
@@ -34,6 +36,8 @@ async function runOnEditCommands(
   if (!commands) return null;
 
   const outputs: string[] = [];
+  const cmds: string[] = [];
+  let failed = false;
 
   for (const rawCmd of commands) {
     const cmd = substituteVars(rawCmd, {
@@ -43,7 +47,9 @@ async function runOnEditCommands(
       mode: 'onEdit' as HookMode,
     });
 
+    cmds.push(cmd);
     const result = await runCommand(cmd, projectRoot, SYNTAX_TIMEOUT_MS);
+    if (result.failed) failed = true;
 
     // Collect output regardless of success/failure (informational)
     const output = (result.stderr + result.stdout).trim();
@@ -52,7 +58,8 @@ async function runOnEditCommands(
     }
   }
 
-  return outputs.length > 0 ? outputs.join('\n') : null;
+  if (outputs.length === 0) return null;
+  return { output: outputs.join('\n'), failed, cmds };
 }
 
 /**
@@ -64,7 +71,8 @@ async function runOnStopForGroup(
   cwd: string,
   globs: GlobCommands,
   projectRoot: string,
-): Promise<string[]> {
+): Promise<{ infos: string[]; errors: string[] }> {
+  const infos: string[] = [];
   const errors: string[] = [];
 
   // Bucket files by matching command (same command = batch together)
@@ -85,12 +93,8 @@ async function runOnStopForGroup(
   }
 
   for (const [rawCmd, matchedFiles] of cmdToFiles) {
-    // Commands without {file} explicitly are batch (auto-append adds {files} for onStop)
-    const usesBatch =
-      rawCmd.includes('{files}') || (!rawCmd.includes('{file}') && !rawCmd.includes('{files}'));
-
-    if (usesBatch) {
-      // Single invocation for all files
+    if (rawCmd.includes('{files}')) {
+      // Batch: single invocation with all matched files
       const cmd = substituteVars(rawCmd, {
         file: matchedFiles[0],
         files: matchedFiles,
@@ -100,12 +104,14 @@ async function runOnStopForGroup(
       });
 
       const result = await runCommand(cmd, cwd, CHECKS_TIMEOUT_MS);
+      const output = (result.stderr + result.stdout).trim();
       if (result.failed) {
-        const output = (result.stderr + result.stdout).trim();
-        if (output) errors.push(`[onStop] ${output}`);
+        if (output) errors.push(`$ ${cmd}\n✗ ${output}`);
+      } else {
+        if (output) infos.push(`$ ${cmd}\n✓ ${output}`);
       }
-    } else {
-      // Per-file invocation
+    } else if (rawCmd.includes('{file}')) {
+      // Per-file: one invocation per file
       for (const file of matchedFiles) {
         const cmd = substituteVars(rawCmd, {
           file,
@@ -115,18 +121,72 @@ async function runOnStopForGroup(
         });
 
         const result = await runCommand(cmd, cwd, CHECKS_TIMEOUT_MS);
+        const output = (result.stderr + result.stdout).trim();
         if (result.failed) {
-          const output = (result.stderr + result.stdout).trim();
-          if (output) errors.push(`[onStop] ${output}`);
+          if (output) errors.push(`$ ${cmd}\n✗ ${output}`);
+        } else {
+          if (output) infos.push(`$ ${cmd}\n✓ ${output}`);
         }
+      }
+    } else {
+      // Singleton: no placeholder — run once with no file args (e.g. npx tsc --noEmit)
+      const cmd = substituteVars(rawCmd, {
+        file: matchedFiles[0],
+        projectRoot,
+        configDir: projectRoot,
+        mode: 'onStop' as HookMode,
+      });
+
+      const result = await runCommand(cmd, cwd, CHECKS_TIMEOUT_MS);
+      const output = (result.stderr + result.stdout).trim();
+      if (result.failed) {
+        if (output) errors.push(`$ ${cmd}\n✗ ${output}`);
+      } else {
+        if (output) infos.push(`$ ${cmd}\n✓ ${output}`);
       }
     }
   }
 
-  return errors;
+  return { infos, errors };
 }
 
 export default function (pi: ExtensionAPI) {
+  const COLLAPSED_LINES = 15;
+
+  pi.on('before_agent_start', async (event: any, _ctx: any) => {
+    const guidelines = [
+      '## Edit Hooks (pi-edit-hooks)',
+      '- **onEdit**: runs after each write/edit; output appended to the tool result. Shows resolved config and the exact command executed.',
+      '- **onStop**: runs after your turn ends; delivered as a follow-up message. Shows the exact command executed. Errors trigger a new turn; clean output is informational only.',
+    ].join('\n');
+    return { systemPrompt: `${event.systemPrompt}\n\n${guidelines}` };
+  });
+
+  pi.registerMessageRenderer('pi-edit-hooks', (message, options, theme) => {
+    const { expanded } = options;
+    const lines = (message.content as string).split('\n');
+
+    const colorLine = (line: string) => {
+      if (line.startsWith('✓')) return theme.fg('success', line);
+      if (line.startsWith('✗')) return theme.fg('error', line);
+      if (line.startsWith('**')) return theme.bold(line.replace(/\*\*/g, '') + ':');
+      return theme.fg('dim', line);
+    };
+
+    const visible = !expanded && lines.length > COLLAPSED_LINES
+      ? lines.slice(0, COLLAPSED_LINES)
+      : lines;
+
+    let rendered = visible.map(colorLine).join('\n');
+
+    if (!expanded && lines.length > COLLAPSED_LINES) {
+      const remaining = lines.length - COLLAPSED_LINES;
+      rendered += `\n${theme.fg('muted', `… ${remaining} more lines (${keyHint('app.tools.expand', 'to expand')})`)}`;
+    }
+
+    return new Text(rendered, 1, 0);
+  });
+
   // session_start: Initialize boundary and state
   pi.on('session_start', async (_event: any, ctx: any) => {
     const boundary = (await getGitRoot(ctx.cwd)) ?? ctx.cwd;
@@ -152,8 +212,10 @@ export default function (pi: ExtensionAPI) {
     const config = resolveConfig(absPath, s.boundary);
     if (!config?.onEdit) return;
 
-    const output = await runOnEditCommands(absPath, config.onEdit, config.projectRoot);
-    if (!output) return;
+    const result = await runOnEditCommands(absPath, config.onEdit, config.projectRoot);
+    if (!result) return;
+
+    if (result.failed) ctx.ui.notify(`⚠️ onEdit: ${filePath}`, 'warning');
 
     // Append output to tool result (informational, never blocks)
     return {
@@ -161,7 +223,7 @@ export default function (pi: ExtensionAPI) {
         ...event.content,
         {
           type: 'text' as const,
-          text: `\n⚠ onEdit: ${filePath}\n\`\`\`\n${output}\n\`\`\``,
+          text: `\n⚠ onEdit\n  config: ${config.configSource}\n  commands: ${result.cmds.join(' | ')}\n\`\`\`\n${result.output}\n\`\`\``,
         },
       ],
     };
@@ -175,6 +237,7 @@ export default function (pi: ExtensionAPI) {
 
     if (files.length === 0) return;
 
+    const allInfos: string[] = [];
     const allErrors: string[] = [];
 
     // Resolve config for the first file to get the workspace grouping setting.
@@ -190,24 +253,45 @@ export default function (pi: ExtensionAPI) {
       const config = resolveConfig(groupFiles[0], s.boundary);
       if (!config?.onStop) continue;
 
-      const errors = await runOnStopForGroup(
+      const { infos, errors } = await runOnStopForGroup(
         groupFiles,
         groupDir,
         config.onStop,
         config.projectRoot,
       );
 
-      if (errors.length > 0) {
-        allErrors.push(`**${groupDir}**\n${errors.join('\n')}`);
+      const lines: string[] = [...infos, ...errors];
+      if (lines.length > 0) {
+        const target = errors.length > 0 ? allErrors : allInfos;
+        target.push(`**${groupDir}**\n${lines.join('\n')}`);
       }
     }
 
-    if (allErrors.length === 0) return;
+    if (allInfos.length === 0 && allErrors.length === 0) return;
 
-    // Send followUp to force agent to address errors
-    pi.sendUserMessage(
-      `Checks failed after edits. Fix the following issues:\n\n${allErrors.join('\n\n')}`,
-      { deliverAs: 'followUp' },
+    if (allErrors.length === 0) {
+      pi.sendMessage(
+        {
+          customType: 'pi-edit-hooks',
+          content: `onStop checks after edits:\n\n${allInfos.join('\n\n')}`,
+          display: true,
+        },
+        { deliverAs: 'followUp', triggerTurn: false },
+      );
+      return;
+    }
+
+    const sections: string[] = [];
+    if (allInfos.length > 0) sections.push(allInfos.join('\n\n'));
+    sections.push(allErrors.join('\n\n'));
+
+    pi.sendMessage(
+      {
+        customType: 'pi-edit-hooks',
+        content: `onStop checks after edits:\n\n${sections.join('\n\n')}`,
+        display: true,
+      },
+      { deliverAs: 'followUp', triggerTurn: true },
     );
   });
 }

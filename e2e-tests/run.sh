@@ -18,7 +18,7 @@ echo ""
 echo "--- 1. Shell injection via \$() in filenames is prevented ---"
 cmd=$(node --input-type=module << 'EOF'
 import { substituteVars } from '../src/substitute.ts'
-const result = substituteVars('echo', {
+const result = substituteVars('echo {file}', {
   file: '/tmp/$(echo INJECTED).ts',
   projectRoot: '/proj',
   configDir: '/proj',

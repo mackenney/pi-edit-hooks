@@ -26,6 +26,8 @@ export interface ResolvedConfig {
   onEdit: GlobCommands | null;
   onStop: GlobCommands | null;
   projectRoot: string;
+  /** Absolute path to the edit-hooks.json file that was resolved */
+  configSource: string;
   /** Workspace manifest override, threaded through from FlatConfig for grouping */
   workspace?: string | Record<string, string> | false;
 }

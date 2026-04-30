@@ -1,6 +1,6 @@
 {
   "name": "pi-edit-hooks",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Code quality hooks for the pi coding agent — runs syntax checks on edit and format/lint/typecheck at turn end",
   "type": "module",
   "license": "MIT",
@@ -55,10 +55,14 @@
     "check": "biome check src/ e2e-tests/live.ts"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*"
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-tui": "*"
   },
   "peerDependenciesMeta": {
     "@mariozechner/pi-coding-agent": {
+      "optional": true
+    },
+    "@mariozechner/pi-tui": {
       "optional": true
     }
   },

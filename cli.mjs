@@ -233,11 +233,6 @@ function substituteVars(cmd, file, projectRoot, configDir, allFiles) {
     result = shellQuote(join(configDir, rel)) + rest
   }
 
-  // Auto-append {files} if no placeholder present (onStop mode)
-  const hasPlaceholder = result.includes('{file}') || result.includes('{files}')
-  if (!hasPlaceholder) {
-    result = result + ' {files}'
-  }
 
   result = result.replace(/\{file\}/g, shellQuote(absFile))
   // Capture path suffix so {projectRoot}/mypy.ini → '/root/mypy.ini' not '/root'/mypy.ini
@@ -344,17 +339,16 @@ async function check() {
     }
 
     for (const [rawCmd, matchedFiles] of cmdToFiles) {
-      const usesBatch = rawCmd.includes('{files}') ||
-                        (!rawCmd.includes('{file}') && !rawCmd.includes('{files}'))
-
-      if (usesBatch) {
+      if (rawCmd.includes('{files}')) {
+        // Batch: single invocation with all matched files
         const cmd = substituteVars(rawCmd, matchedFiles[0], cwd, configDir, matchedFiles)
         const result = await runCommand(cmd, cwd, CHECKS_TIMEOUT_MS)
         if (result.failed) {
           const output = (result.stderr + result.stdout).trim()
           if (output) groupErrors.push(`[onStop] ${output}`)
         }
-      } else {
+      } else if (rawCmd.includes('{file}')) {
+        // Per-file: one invocation per file
         for (const file of matchedFiles) {
           const cmd = substituteVars(rawCmd, file, cwd, configDir)
           const result = await runCommand(cmd, cwd, CHECKS_TIMEOUT_MS)
@@ -362,6 +356,14 @@ async function check() {
             const output = (result.stderr + result.stdout).trim()
             if (output) groupErrors.push(`[onStop] ${output}`)
           }
+        }
+      } else {
+        // Singleton: no placeholder — run once with no file args (e.g. npx tsc --noEmit)
+        const cmd = substituteVars(rawCmd, matchedFiles[0], cwd, configDir)
+        const result = await runCommand(cmd, cwd, CHECKS_TIMEOUT_MS)
+        if (result.failed) {
+          const output = (result.stderr + result.stdout).trim()
+          if (output) groupErrors.push(`[onStop] ${output}`)
         }
       }
     }

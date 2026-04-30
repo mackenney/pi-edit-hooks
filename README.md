@@ -19,8 +19,8 @@ Create `.pi/edit-hooks.json` in your project, or globally at `~/.pi/agent/edit-h
 
 | Hook | Trigger | Behavior | Variables |
 |------|---------|----------|-----------|
-| `onEdit` | After each `write`/`edit` tool call | Appends output to tool result (informational, never blocks) | `{file}` |
-| `onStop` | After agent turn ends | Sends errors as a follow-up message (agent must fix) | `{files}`, `{file}` |
+| `onEdit` | After each `write`/`edit` tool call | Appends output to tool result (informational, never blocks). Shows resolved config file and command executed. | `{file}` |
+| `onStop` | After agent turn ends | Sends a follow-up message with each command and its output. Errors trigger a new agent turn; clean output is informational only. | `{files}`, `{file}` |
 
 ## Variables
 
@@ -28,7 +28,7 @@ Create `.pi/edit-hooks.json` in your project, or globally at `~/.pi/agent/edit-h
 - `{files}` — space-separated absolute paths of all files edited in the current turn, grouped by project (see below)
 - `{projectRoot}` — directory containing the `.pi/` folder
 
-Commands without a placeholder get `{file}` (onEdit) or `{files}` (onStop) appended automatically.
+Commands without a placeholder run as-is (useful for project-wide tools like `npx tsc --noEmit`).
 
 ## Monorepo File Grouping
 

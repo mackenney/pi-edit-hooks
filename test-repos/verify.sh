@@ -109,10 +109,11 @@ EOF
   fi
 }
 
-test_subst "echo {file}"      "onEdit" "/tmp/test.py"
-test_subst "echo"             "onEdit" "/tmp/test.py"
-test_subst "echo"             "onStop" "/tmp/a.py"
-test_subst "echo"             "onStop" "/tmp/b.py"
+test_subst "echo {file}"       "onEdit" "/tmp/test.py"
+test_subst "echo {files}"      "onStop" "/tmp/a.py"
+test_subst "echo {files}"      "onStop" "/tmp/b.py"
+test_subst "echo"              "onEdit" "echo"
+test_subst "echo"              "onStop" "echo"
 test_subst "echo {projectRoot}" "onEdit" "/project"
 test_subst "./scripts/check.sh" "onEdit" "/project/scripts/check.sh"
 

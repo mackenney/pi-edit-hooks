@@ -66,23 +66,26 @@ describe.skipIf(!HAS_KEY)("pi-edit-hooks extension — real Haiku API", () => {
 
 			const text = allText(session);
 			expect(text).toContain("EDIT_HOOK_FIRED");
-			expect(text).toContain("⚠ onEdit:");
+			expect(text).toContain("⚠ onEdit");
+			expect(text).toContain("config:");
+			expect(text).toContain("commands:");
 		} finally {
 			cleanup();
 		}
 	});
 
-	it("onStop: passes silently when command exits 0", async () => {
+	it("onStop: clean run sends informational follow-up, no errors", async () => {
 		const { dir, cleanup } = makeProject({ onStop: { "*.py": "echo ALL_GOOD" } });
 		try {
 			const session = await createTestSession({ cwd: dir });
 			await session.prompt(`Write the file ${join(dir, "check.py")} with content: y = 2`);
 
-			// Give the extension's agent_end handler time to run (it would send
-			// a follow-up if errors were found — we confirm it doesn't).
-			await new Promise((r) => setTimeout(r, 3_000));
-
-			expect(allText(session)).not.toContain("Checks failed after edits");
+			// onStop sends an informational follow-up (triggerTurn: false) when commands
+			// have output but exit 0. Poll until it arrives.
+			const found = await waitFor(session, (t) => t.includes("onStop checks after edits"));
+			expect(found).toBe(true);
+			expect(allText(session)).toContain("✓ ALL_GOOD");
+			expect(allText(session)).not.toContain("✗");
 		} finally {
 			cleanup();
 		}
@@ -98,7 +101,7 @@ describe.skipIf(!HAS_KEY)("pi-edit-hooks extension — real Haiku API", () => {
 
 			// Poll: extension's agent_end fires async, executes the hook, then
 			// calls sendUserMessage to queue a follow-up turn.
-			const found = await waitFor(session, (t) => t.includes("Checks failed after edits"));
+			const found = await waitFor(session, (t) => t.includes("onStop checks after edits"));
 			expect(found).toBe(true);
 			expect(allText(session)).toContain("STOP_HOOK_ERROR");
 		} finally {

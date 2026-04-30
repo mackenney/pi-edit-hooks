@@ -33,9 +33,8 @@ function shellQuote(s: string): string {
  *                   so {projectRoot}/mypy.ini becomes '/project/mypy.ini', not
  *                   '/project'/mypy.ini
  *
- * Auto-append: If command contains neither {file} nor {files}, appends:
- *   - {file} for onEdit mode
- *   - {files} for onStop mode
+ * Placeholders must be explicit — no auto-append. Commands without {file} or
+ * {files} run as-is (useful for project-wide tools like `npx tsc --noEmit`).
  *
  * Relative commands (./script.sh, ../bin/check) resolve against configDir and
  * are shell-quoted so spaces in the path are handled correctly.
@@ -50,11 +49,6 @@ export function substituteVars(cmd: string, opts: SubstituteOptions): string {
     const rel = spaceIdx === -1 ? result : result.slice(0, spaceIdx);
     const rest = spaceIdx === -1 ? '' : result.slice(spaceIdx);
     result = shellQuote(join(opts.configDir, rel)) + rest;
-  }
-
-  const hasFilePlaceholder = result.includes('{file}') || result.includes('{files}');
-  if (!hasFilePlaceholder) {
-    result = opts.mode === 'onEdit' ? `${result} {file}` : `${result} {files}`;
   }
 
   result = result.replace(/\{file\}/g, shellQuote(absFile));

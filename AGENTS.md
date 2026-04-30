@@ -16,9 +16,11 @@ src/
 ├── resolve.ts      — resolveConfig, resolvePathKeyedSection (merges global + project config)
 ├── core.ts         — runCommand, groupFilesByManifest, SYNTAX_TIMEOUT_MS, CHECKS_TIMEOUT_MS
 └── index.ts        — ExtensionAPI wiring:
-    ├── session_start  — initializes { boundary, editedFiles } state from git root
-    ├── tool_result    — onEdit hooks: runs commands, appends output to tool result content
-    └── agent_end      — onStop hooks: runs commands, sends follow-up on any failure
+    ├── before_agent_start — injects onEdit/onStop guidelines into the system prompt
+    ├── registerMessageRenderer — renders pi-edit-hooks follow-up messages with color
+    ├── session_start      — initializes { boundary, editedFiles } state from git root
+    ├── tool_result        — onEdit hooks: runs commands, appends output (config + cmd) to tool result
+    └── agent_end          — onStop hooks: runs commands, sends follow-up (infos informational, errors trigger turn)
 
 cli.mjs             — Claude Code binary: accumulate (records edits) + check (runs onStop)
 ```
@@ -35,8 +37,7 @@ commands run once per project with only the relevant file subset.
 **onEdit return shape:** the handler returns `{ content: [...event.content, newBlock] }` —
 always an append, never a replacement.
 
-**onStop delivery:** `pi.sendUserMessage(text, { deliverAs: 'followUp' })`. Only fires when
-at least one command exits non-zero.
+**onStop delivery:** `pi.sendMessage({ customType: 'pi-edit-hooks', content, display: true }, { deliverAs: 'followUp', triggerTurn })`. Fires on success (infos, `triggerTurn: false`) and on failure (errors, `triggerTurn: true`).
 
 ---
 
@@ -49,7 +50,7 @@ at least one command exits non-zero.
 | `pi.on('tool_result', event)` | `event.isError`, `event.toolName`, `event.input`, `event.content` | — |
 | `pi.on('agent_end', event, ctx)` | `ctx.cwd` used to reset editedFiles | — |
 | `pi.on('session_start', event, ctx)` | `ctx.cwd` used to set boundary | — |
-| `pi.sendUserMessage(text, opts)` | `{ deliverAs: 'followUp' }` option | — |
+| `pi.sendMessage(message, opts)` | `{ customType, content, display }` + `{ deliverAs, triggerTurn }` options | — |
 | Tool result return `{ content }` | Must be `ContentBlock[]` matching pi's internal type | — |
 
 `test/helpers/create-test-session.ts` and `e2e-tests/live.ts` are the version-sensitive
@@ -68,8 +69,8 @@ Cross-reference CHANGELOG.md when diagnosing failures against a new pi version.
 2. **`tool_result` appends, never replaces.** Return `{ content: [...event.content, added] }`.
 3. **`onEdit` is informational — never blocks.** Commands run, output is appended, but a
    non-zero exit does not stop the agent turn.
-4. **`onStop` only sends a follow-up on failure.** A zero-exit run produces no message.
-5. **`sendUserMessage` uses `deliverAs: 'followUp'`**, not a bare user message.
+4. **`onStop` sends a follow-up for both infos and errors.** Zero-exit with no output produces no message; non-zero always triggers a new agent turn; zero-exit with output sends an informational follow-up without triggering a turn.
+5. **`sendMessage` uses `deliverAs: 'followUp'`**, not a bare user message. Error paths additionally set `triggerTurn: true`.
 6. **No build step, no dist/.** `src/*.ts` and `cli.mjs` are published as-is.
 7. **`src/` files are pure.** No pi imports in `glob.ts`, `substitute.ts`, `types.ts`,
    `discover.ts`, `resolve.ts`, or `core.ts` — only `index.ts` imports `ExtensionAPI`.
@@ -79,7 +80,7 @@ Cross-reference CHANGELOG.md when diagnosing failures against a new pi version.
 ## Tests
 
 ```
-test-repos/verify.sh                    — fixture JSON validation + core logic (38 tests, no API)
+test-repos/verify.sh                    — fixture JSON validation + core logic (39 tests, no API)
 e2e-tests/run.sh                        — security + behavior checks (12 tests, no API)
 test/integration/mock-server.test.ts    — full pipeline via local HTTP mock (7 tests, no API)
 test/integration/real-api.test.ts       — real Haiku calls, auto-skipped without key

@@ -1,5 +1,5 @@
 import { relative, resolve } from 'node:path';
-import { discoverConfigs } from './discover.ts';
+import { CONFIG_DIR, CONFIG_FILE, GLOBAL_CONFIG_PATH, discoverConfigs } from './discover.ts';
 import type { FlatConfig, GlobCommands, PathKeyedConfig, ResolvedConfig } from './types.ts';
 import { isPathKeyedConfig } from './types.ts';
 
@@ -100,15 +100,17 @@ export function resolveConfig(filePath: string, boundary: string): ResolvedConfi
 
   let projectSection: FlatConfig | null = null;
   let projectRoot: string;
+  let configSource: string;
 
   if (project) {
     projectRoot = project.configDir;
+    configSource = `${project.configDir}/${CONFIG_DIR}/${CONFIG_FILE}`;
 
     if (isPathKeyedConfig(project.config)) {
       const section = resolvePathKeyedSection(project.config, filePath, project.configDir);
 
       if (section === false) {
-        return { onEdit: null, onStop: null, projectRoot };
+        return { onEdit: null, onStop: null, projectRoot, configSource };
       }
 
       projectSection = section;
@@ -118,6 +120,7 @@ export function resolveConfig(filePath: string, boundary: string): ResolvedConfi
   } else {
     // biome-ignore lint/style/noNonNullAssertion: global is guaranteed non-null here (early return handles !project && !global)
     projectRoot = global!.configDir;
+    configSource = GLOBAL_CONFIG_PATH;
   }
 
   // Path-keyed global configs are not supported: global config applies
@@ -146,6 +149,7 @@ export function resolveConfig(filePath: string, boundary: string): ResolvedConfi
     onEdit: merged.onEdit,
     onStop: merged.onStop,
     projectRoot,
+    configSource,
     ...(workspace !== undefined ? { workspace } : {}),
   };
 }
