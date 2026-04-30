@@ -13,7 +13,7 @@
 
 - Each result is now prefixed with `$ <cmd>` on its own line before the `✓`/`✗` output
 - Successful commands with output are now delivered as informational follow-ups (`triggerTurn: false`) instead of being silently dropped
-- Added singleton dispatch path for commands with no `{file}` or `{files}` placeholder (e.g. `npx tsc --noEmit`)
+- Added singleton dispatch path for commands with no `{file}` or `{files}` placeholder (e.g. `tsc --noEmit`)
 
 ### Model awareness
 
@@ -25,8 +25,9 @@
 
 ### `substituteVars` — auto-append removed
 
-- Commands without `{file}` or `{files}` placeholders now run as-is. Previously they had the appropriate placeholder appended automatically. This enables singleton commands like `npx tsc --noEmit` that operate on the whole project rather than individual files.
+- Commands without `{file}` or `{files}` placeholders now run as-is. Previously they had the appropriate placeholder appended automatically. This enables singleton commands like `tsc --noEmit` that operate on the whole project rather than individual files.
 - `onStop` dispatch now has three explicit paths: `{files}` batch, `{file}` per-file, and singleton (no placeholder).
+- Example configs and `edit-hooks.example.json` updated: `node --check` replaced by `esbuild {file} > /dev/null` for `*.{ts,tsx}`; `basedpyright` replaced by `ty`.
 
 ### `node_modules/.bin` in PATH
 
@@ -34,6 +35,6 @@
 
 ### Tests
 
-- `e2e-tests/run.sh` test 1: fixed injection test to use `echo {file}` — the previous `echo` (no placeholder) never substituted a path, so the single-quote check was vacuously testing nothing after auto-append was removed
+- `e2e-tests/run.sh` test 1: fixed injection test to use `echo {file}` — the old `echo` with no placeholder never substituted a path after auto-append was removed, making the single-quote safety check vacuous
 - `test-repos/verify.sh`: updated substitution tests to reflect no-auto-append behaviour; added explicit singleton case
 - `mock-server.test.ts` and `real-api.test.ts`: updated assertions for new output format (`⚠ onEdit` without path, `config:`, `commands:`), new onStop message prefix (`onStop checks after edits`), and new informational follow-up behaviour for clean runs
