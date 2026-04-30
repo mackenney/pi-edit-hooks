@@ -4,8 +4,8 @@
   },
   "onStop": {
     "*.{ts,mjs}": [
-      "biome check --write {files}",
-      "tsc --noEmit"
+      "npx biome check --write {files}",
+      "npx tsc --noEmit"
     ]
   }
 }
