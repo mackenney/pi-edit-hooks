@@ -28,6 +28,10 @@
 - Commands without `{file}` or `{files}` placeholders now run as-is. Previously they had the appropriate placeholder appended automatically. This enables singleton commands like `npx tsc --noEmit` that operate on the whole project rather than individual files.
 - `onStop` dispatch now has three explicit paths: `{files}` batch, `{file}` per-file, and singleton (no placeholder).
 
+### `node_modules/.bin` in PATH
+
+- `runCommand` now prepends `<cwd>/node_modules/.bin` to `PATH` before executing hook commands, matching how `npm run` scripts work. Project-local binaries (`biome`, `tsc`, `eslint`, etc.) resolve by name without `npx`.
+
 ### Tests
 
 - `e2e-tests/run.sh` test 1: fixed injection test to use `echo {file}` — the previous `echo` (no placeholder) never substituted a path, so the single-quote check was vacuously testing nothing after auto-append was removed

@@ -34,6 +34,8 @@ disables all hooks for that subtree.
 nearest workspace manifest (`pyproject.toml`, `package.json`, `go.mod`, etc.), so `onStop`
 commands run once per project with only the relevant file subset.
 
+**`node_modules/.bin` injection:** `runCommand` prepends `<cwd>/node_modules/.bin` to PATH so project-local tools (`biome`, `tsc`, etc.) work by name — same as `npm run` scripts.
+
 **onEdit return shape:** the handler returns `{ content: [...event.content, newBlock] }` —
 always an append, never a replacement.
 
