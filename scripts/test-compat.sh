@@ -2,7 +2,7 @@
 # test-compat.sh — run integration tests against multiple pi versions.
 #
 # Discovers the latest patch release for the last N minor versions of
-# @mariozechner/pi-coding-agent from the npm registry, installs each with
+# @earendil-works/pi-coding-agent from the npm registry, installs each with
 # --no-save (so package.json is untouched), runs the full test suite
 # (bash e2e, mock-server vitest, real-api vitest, live SDK sessions),
 # then restores the original lockfile via npm ci.
@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-PACKAGE="@mariozechner/pi-coding-agent"
+PACKAGE="@earendil-works/pi-coding-agent"
 N_MINORS="${1:-3}"
 SKIP_E2E="${SKIP_E2E:-}"
 

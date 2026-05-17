@@ -17,7 +17,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getModel } from '@mariozechner/pi-ai';
+import { getModel } from '@earendil-works/pi-ai';
 import {
   type AgentSession,
   AuthStorage,
@@ -26,7 +26,7 @@ import {
   ModelRegistry,
   SessionManager,
   SettingsManager,
-} from '@mariozechner/pi-coding-agent';
+} from '@earendil-works/pi-coding-agent';
 
 const EXTENSION_PATH = new URL('../src/index.ts', import.meta.url).pathname;
 const MODEL_ID = 'claude-haiku-4-5';

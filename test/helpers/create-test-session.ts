@@ -7,8 +7,8 @@ import {
 	ModelRegistry,
 	SessionManager,
 	SettingsManager,
-} from "@mariozechner/pi-coding-agent";
-import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
+import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
 
 export interface TestSessionOptions {
 	/**

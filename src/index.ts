@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { ExtensionAPI } from '@mariozechner/pi-coding-agent';
-import { keyHint } from '@mariozechner/pi-coding-agent';
-import { Text } from '@mariozechner/pi-tui';
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { keyHint } from '@earendil-works/pi-coding-agent';
+import { Text } from '@earendil-works/pi-tui';
 import { CHECKS_TIMEOUT_MS, groupFilesByManifest, runCommand, SYNTAX_TIMEOUT_MS } from './core.ts';
 import { getGitRoot } from './discover.ts';
 import { findCommand, normalizeCommand } from './glob.ts';
