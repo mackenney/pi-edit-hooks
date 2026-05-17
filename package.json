@@ -1,6 +1,6 @@
 {
   "name": "pi-edit-hooks",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Code quality hooks for the pi coding agent — runs syntax checks on edit and format/lint/typecheck at turn end",
   "type": "module",
   "license": "MIT",

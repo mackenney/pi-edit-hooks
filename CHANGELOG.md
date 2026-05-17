@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1 — 2026-05-17
+
+### Compatibility
+
+- Updated package scope: `@mariozechner/*` → `@earendil-works/*` at pi@0.75.0 (package rename in pi 0.74.0)
+- Tested against pi@0.71.1, pi@0.72.1, pi@0.73.1 — all pass (0.72.1 failure was a transient pi regression, not extension code)
+
 ## 0.2.0 — 2026-04-30
 
 ### Compatibility
