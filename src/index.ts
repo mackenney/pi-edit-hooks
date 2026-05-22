@@ -269,14 +269,14 @@ export default function (pi: ExtensionAPI) {
     if (allInfos.length === 0 && allErrors.length === 0) return;
 
     if (allErrors.length === 0) {
-      pi.sendMessage(
-        {
-          customType: 'pi-edit-hooks',
-          content: `onStop checks after edits:\n\n${allInfos.join('\n\n')}`,
-          display: true,
-        },
-        { deliverAs: 'followUp', triggerTurn: false },
-      );
+      const infoContent = `onStop checks after edits:\n\n${allInfos.join('\n\n')}`;
+      // Defer like the error path: followUpQueue is never drained in pi@0.75.4 during agent_end.
+      setImmediate(() => {
+        pi.sendMessage(
+          { customType: 'pi-edit-hooks', content: infoContent, display: true },
+          { deliverAs: 'followUp', triggerTurn: false },
+        );
+      });
       return;
     }
 
