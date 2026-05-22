@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2 — 2026-05-22
+
+### Compatibility
+
+- Fixed onStop error-case follow-up delivery on pi@0.75.4
+- Root cause: pi@0.75.4's awaited agent lifecycle replaced the event queue; `sendMessage` with `triggerTurn:true` during `agent_end` enqueued to a never-drained followUpQueue
+- Fix: defer the sendMessage call with `setImmediate()` so it runs after `finishRun()` clears `isStreaming`
+- Tested against pi@0.74.2, pi@0.75.4 — both pass
+
 ## 0.2.1 — 2026-05-17
 
 ### Compatibility
