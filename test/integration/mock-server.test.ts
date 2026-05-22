@@ -127,6 +127,14 @@ describe("pi-edit-hooks extension — mock server", () => {
 		// Give agent_end handler time to execute. triggerTurn: false means no new API request.
 		await new Promise((r) => setTimeout(r, 1_500));
 		expect(server.requests).toHaveLength(2);
+		// Verify the informational message was appended to session state (sendCustomMessage
+		// with no triggerTurn appends to state/session without starting a new turn).
+		const editHooksMsgs = session.messages.filter(
+			(m) => m.role === 'custom' && (m as any).customType === 'pi-edit-hooks'
+		);
+		expect(editHooksMsgs).toHaveLength(1);
+		expect((editHooksMsgs[0] as any).content).toContain('onStop checks after edits');
+		expect((editHooksMsgs[0] as any).content).toContain('ALL_GOOD');
 	});
 
 	it("onStop: failure sends follow-up message with error output", async () => {

@@ -270,7 +270,12 @@ export default function (pi: ExtensionAPI) {
 
     if (allErrors.length === 0) {
       const infoContent = `onStop checks after edits:\n\n${allInfos.join('\n\n')}`;
-      // Defer like the error path: followUpQueue is never drained in pi@0.75.4 during agent_end.
+      // Defer until the agent lifecycle settles (isStreaming becomes false).
+      // In pi@0.75.4, sendMessage during agent_end enqueues to followUpQueue which is
+      // never drained (the loop has exited). By deferring to setImmediate, we run after
+      // finishRun() clears isStreaming, so sendMessage appends directly to session state.
+      // NOTE: This relies on finishRun() being synchronous before the next event loop tick.
+      // Revisit if a future pi version breaks this assumption.
       setImmediate(() => {
         pi.sendMessage(
           { customType: 'pi-edit-hooks', content: infoContent, display: true },
@@ -289,6 +294,8 @@ export default function (pi: ExtensionAPI) {
     // to followUpQueue which is never drained (the loop has exited). By deferring
     // to setImmediate, we run after finishRun() clears isStreaming, so sendMessage
     // takes the _runAgentPrompt path and starts a new agent loop.
+    // NOTE: This relies on finishRun() being synchronous before the next event loop tick.
+    // Revisit if a future pi version breaks this assumption.
     const followUpContent = `onStop checks after edits:\n\n${sections.join('\n\n')}`;
     setImmediate(() => {
       pi.sendMessage(
