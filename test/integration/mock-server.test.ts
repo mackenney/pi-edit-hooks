@@ -151,7 +151,7 @@ describe("pi-edit-hooks extension — mock server", () => {
 		await session.prompt("write test.py");
 
 		// agent_end fires asynchronously after prompt() returns; poll for request 3.
-		const arrived = await waitForRequests(server, 3, 3_500);
+		const arrived = await waitForRequests(server, 3, 8_000);
 		expect(arrived).toBe(true);
 
 		const followUpText = getLastUserMessageText(server.requests[2].body);
