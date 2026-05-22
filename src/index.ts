@@ -284,13 +284,21 @@ export default function (pi: ExtensionAPI) {
     if (allInfos.length > 0) sections.push(allInfos.join('\n\n'));
     sections.push(allErrors.join('\n\n'));
 
-    pi.sendMessage(
-      {
-        customType: 'pi-edit-hooks',
-        content: `onStop checks after edits:\n\n${sections.join('\n\n')}`,
-        display: true,
-      },
-      { deliverAs: 'followUp', triggerTurn: true },
-    );
+    // Defer until the agent lifecycle settles (isStreaming becomes false).
+    // In pi@0.75.4, sendMessage with triggerTurn:true during agent_end enqueues
+    // to followUpQueue which is never drained (the loop has exited). By deferring
+    // to setImmediate, we run after finishRun() clears isStreaming, so sendMessage
+    // takes the _runAgentPrompt path and starts a new agent loop.
+    const followUpContent = `onStop checks after edits:\n\n${sections.join('\n\n')}`;
+    setImmediate(() => {
+      pi.sendMessage(
+        {
+          customType: 'pi-edit-hooks',
+          content: followUpContent,
+          display: true,
+        },
+        { deliverAs: 'followUp', triggerTurn: true },
+      );
+    });
   });
 }
