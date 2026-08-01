@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.3 — 2026-06-05
+
+### Compatibility
+
+- Fixed test-harness breakage on pi@0.80.8+ (test/helpers/create-test-session.ts, e2e-tests/live.ts)
+- Root cause: pi@0.80.8 removed the `AuthStorage` export and replaced `CreateAgentSessionOptions.{authStorage, modelRegistry}` with a single async `modelRuntime: ModelRuntime` option; the test harness constructed sessions with the removed API
+- Fix: migrated both files to `ModelRuntime.create()` / `modelRuntime.setRuntimeApiKey()` / `modelRuntime.getModel()`, passed as `modelRuntime` into `createAgentSession()`
+- No `src/` changes — the shipped extension does not use these SDK APIs
+- Bumped devDependencies to pi@0.83.0 (required: `ModelRuntime` does not exist before 0.80.8)
+- Version floor: pi@0.79.x and earlier are no longer supported by the test harness (pre-`ModelRuntime`); this is outside the default 3-minor compat window and does not affect the shipped extension's runtime compatibility
+- Tested against pi@0.80.10, 0.81.1, 0.82.1, 0.83.0 — all pass; pi@0.79.10 fails as expected (API removed, not a regression)
 ## 0.2.2 — 2026-05-22
 
 ### Compatibility

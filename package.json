@@ -1,6 +1,6 @@
 {
   "name": "pi-edit-hooks",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Code quality hooks for the pi coding agent — runs syntax checks on edit and format/lint/typecheck at turn end",
   "type": "module",
   "license": "MIT",
@@ -68,9 +68,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.12",
-    "@earendil-works/pi-ai": "0.75.4",
-    "@earendil-works/pi-coding-agent": "0.78.1",
-    "@earendil-works/pi-tui": "0.75.4",
+    "@earendil-works/pi-ai": "0.83.0",
+    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@earendil-works/pi-tui": "0.83.0",
     "@types/node": "^24.0.0",
     "typescript": "^5.0.0",
     "vitest": "^3.0.0"

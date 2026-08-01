@@ -1,10 +1,9 @@
 import { join, resolve } from "node:path";
 import { homedir } from "node:os";
 import {
-	AuthStorage,
 	createAgentSession,
 	DefaultResourceLoader,
-	ModelRegistry,
+	ModelRuntime,
 	SessionManager,
 	SettingsManager,
 } from "@earendil-works/pi-coding-agent";
@@ -48,14 +47,12 @@ export interface TestSessionOptions {
 export async function createTestSession(options: TestSessionOptions) {
 	const { cwd, mockBaseUrl, extraFactories = [] } = options;
 
-	const authStorage = AuthStorage.create();
+	const modelRuntime = await ModelRuntime.create();
 
 	if (mockBaseUrl) {
 		// Fake key so pi doesn't reject before sending to the mock server.
-		authStorage.setRuntimeApiKey("anthropic", "test-api-key");
+		await modelRuntime.setRuntimeApiKey("anthropic", "test-api-key");
 	}
-
-	const modelRegistry = ModelRegistry.inMemory(authStorage);
 
 	const providerFactory: ExtensionFactory = (pi) => {
 		if (mockBaseUrl) {
@@ -84,7 +81,7 @@ export async function createTestSession(options: TestSessionOptions) {
 	});
 	await loader.reload();
 
-	const model = modelRegistry.find("anthropic", "claude-haiku-4-5");
+	const model = modelRuntime.getModel("anthropic", "claude-haiku-4-5");
 	if (!model) throw new Error("claude-haiku-4-5 not found in model registry");
 
 	const { session } = await createAgentSession({
@@ -99,8 +96,7 @@ export async function createTestSession(options: TestSessionOptions) {
 			compaction: { enabled: false },
 			retry: { enabled: false },
 		}),
-		authStorage,
-		modelRegistry,
+		modelRuntime,
 	});
 
 	return session;

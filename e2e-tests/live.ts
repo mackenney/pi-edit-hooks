@@ -17,13 +17,11 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getModel } from '@earendil-works/pi-ai';
 import {
   type AgentSession,
-  AuthStorage,
   createAgentSession,
   DefaultResourceLoader,
-  ModelRegistry,
+  ModelRuntime,
   SessionManager,
   SettingsManager,
 } from '@earendil-works/pi-coding-agent';
@@ -40,18 +38,18 @@ function makeProject(config: object): { dir: string; cleanup(): void } {
   return { dir, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
-function makeAuthStorage(): typeof AuthStorage.prototype {
+async function makeModelRuntime(): Promise<ModelRuntime> {
+  const modelRuntime = await ModelRuntime.create();
   const envKey = process.env.ANTHROPIC_API_KEY;
   if (envKey) {
-    return AuthStorage.inMemory({ anthropic: { type: 'api_key', key: envKey } });
+    await modelRuntime.setRuntimeApiKey('anthropic', envKey);
   }
-  return AuthStorage.create();
+  return modelRuntime;
 }
 
 async function makeSession(cwd: string) {
-  const authStorage = makeAuthStorage();
-  const modelRegistry = ModelRegistry.create(authStorage);
-  const model = getModel('anthropic', MODEL_ID);
+  const modelRuntime = await makeModelRuntime();
+  const model = modelRuntime.getModel('anthropic', MODEL_ID);
   if (!model) throw new Error(`Model ${MODEL_ID} not found`);
 
   // agentDir became required (non-defaulted) in pi 0.68.x.
@@ -72,8 +70,7 @@ async function makeSession(cwd: string) {
     cwd,
     model,
     thinkingLevel: 'off',
-    authStorage,
-    modelRegistry,
+    modelRuntime,
     resourceLoader: loader,
     // No explicit tools: both pi 0.67.x (Tool[]) and pi 0.68.x+ (string[])
     // default to ["read","bash","edit","write"].
