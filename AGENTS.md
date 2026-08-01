@@ -110,6 +110,21 @@ behaviour; **major** for breaking changes to `.pi/edit-hooks.json` schema or CLI
 CHANGELOG entries must reference the pi version that caused the change:
 `createAgentSession tools option changed to string[] in pi 0.68.0`
 
+**Release tags:** every published npm version gets an annotated git tag `vX.Y.Z` pointing
+at the exact commit that was published (matches npm's own `gitHead` metadata for that
+version — verify with `npm view pi-edit-hooks@X.Y.Z gitHead`). Release steps:
+
+```bash
+npm run pack:preview                       # sanity check tarball contents
+npm publish                                # runs prepublishOnly gate, then publishes
+git tag -a vX.Y.Z -m "pi-edit-hooks X.Y.Z"  # tag the exact commit just published
+git push && git push --tags
+```
+
+Tag after a successful `npm publish`, not before — the tag must point at the commit whose
+tree was actually published. If `npm publish` fails or the tree changes before it succeeds,
+re-tag against the corrected commit rather than tagging a stale one.
+
 ---
 
 ## Commands
